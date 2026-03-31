@@ -1,0 +1,2 @@
+Training a Physics-Informed Neural Network to locate the Epileptogenic Zone (where an epileptic seizure originated), better aiding surgery to remove it for drug-resistant epilepsy.
+Through encoding the 4 Hodgkin-Huxley equations (differential equations that express the properties of the axon membrane and ionic gradients) into the model's loss function - we can build a grey-box model that rejects solutions that disobey the brain's inherent thermodynamics.
