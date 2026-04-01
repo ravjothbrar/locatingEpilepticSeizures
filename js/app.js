@@ -29,7 +29,16 @@ const App = {
   },
 
   _bindUI() {
-    document.getElementById('btn-demo').addEventListener('click', () => this._loadDemo());
+    // Populate sample patient dropdown
+    const menu = document.getElementById('demo-menu');
+    this._patients.forEach((p, i) => {
+      const item = document.createElement('div');
+      item.className = 'demo-item';
+      item.innerHTML = `<div class="demo-item-title">${p.title}</div><div class="demo-item-desc">${p.desc}</div><span class="demo-item-region">${p.region}</span>`;
+      item.addEventListener('click', () => this._loadDemo(i));
+      menu.appendChild(item);
+    });
+
     document.getElementById('btn-run').addEventListener('click', () => this._runInference());
     document.getElementById('btn-hands').addEventListener('click', async () => {
       const active = await HandTracker.toggle();
@@ -101,12 +110,99 @@ const App = {
     setTimeout(() => { hints.style.display = 'none'; }, 4500);
   },
 
-  // === Synthetic Data ===
-  _generateSyntheticEEG() {
+  // === Sample Patient Datasets ===
+  // Channel order: 0:FP1-F7, 1:F7-T7, 2:T7-P7, 3:P7-O1, 4:FP1-F3, 5:F3-C3,
+  // 6:C3-P3, 7:P3-O1, 8:FP2-F4, 9:F4-C4, 10:C4-P4, 11:P4-O2, 12:FP2-F8,
+  // 13:F8-T8, 14:T8-P8, 15:P8-O2, 16:FZ-CZ, 17:CZ-PZ
+  _patients: [
+    {
+      id: 'ltl',
+      title: 'Patient 1 — Left Temporal Lobe Epilepsy',
+      desc: '8-year-old female. Typical mesial temporal lobe seizure with rhythmic theta onset in left temporal chain.',
+      region: 'Left Temporal',
+      channels: [1, 2, 3],    // F7-T7, T7-P7, P7-O1
+      onset: 3.0, freq: 14, freqDrift: 4, amp: 3.0, harmonic: 0.4
+    },
+    {
+      id: 'rtl',
+      title: 'Patient 2 — Right Temporal Lobe Epilepsy',
+      desc: '11-year-old male. Right temporal seizure with semi-rhythmic sharp waves propagating posteriorly.',
+      region: 'Right Temporal',
+      channels: [13, 14, 15],  // F8-T8, T8-P8, P8-O2
+      onset: 2.5, freq: 12, freqDrift: 6, amp: 3.2, harmonic: 0.5
+    },
+    {
+      id: 'lf',
+      title: 'Patient 3 — Left Frontal Epilepsy',
+      desc: '6-year-old female. Frontal lobe seizure with high-frequency beta onset in left frontal electrodes.',
+      region: 'Left Frontal',
+      channels: [0, 4, 5],    // FP1-F7, FP1-F3, F3-C3
+      onset: 2.0, freq: 22, freqDrift: 3, amp: 2.5, harmonic: 0.3
+    },
+    {
+      id: 'rf',
+      title: 'Patient 4 — Right Frontal Epilepsy',
+      desc: '9-year-old male. Brief frontal seizure with rapid spread. Low-voltage fast activity over right frontal region.',
+      region: 'Right Frontal',
+      channels: [8, 9, 12],   // FP2-F4, F4-C4, FP2-F8
+      onset: 4.0, freq: 25, freqDrift: 2, amp: 2.2, harmonic: 0.25
+    },
+    {
+      id: 'lp',
+      title: 'Patient 5 — Left Parietal Epilepsy',
+      desc: '7-year-old female. Parietal focus with rhythmic alpha-range activity spreading to occipital channels.',
+      region: 'Left Parietal',
+      channels: [6, 7, 3],    // C3-P3, P3-O1, P7-O1
+      onset: 3.5, freq: 10, freqDrift: 3, amp: 2.8, harmonic: 0.35
+    },
+    {
+      id: 'rp',
+      title: 'Patient 6 — Right Parietal Epilepsy',
+      desc: '10-year-old male. Right parietal seizure onset with spike-and-wave morphology at 3 Hz.',
+      region: 'Right Parietal',
+      channels: [10, 11, 15], // C4-P4, P4-O2, P8-O2
+      onset: 2.8, freq: 11, freqDrift: 4, amp: 2.9, harmonic: 0.45
+    },
+    {
+      id: 'lo',
+      title: 'Patient 7 — Left Occipital Epilepsy',
+      desc: '5-year-old female. Occipital seizure with visual aura history. Rhythmic delta onset over left posterior region.',
+      region: 'Left Occipital',
+      channels: [3, 7],       // P7-O1, P3-O1
+      onset: 3.2, freq: 8, freqDrift: 5, amp: 3.5, harmonic: 0.5
+    },
+    {
+      id: 'bt',
+      title: 'Patient 8 — Bilateral Temporal Epilepsy',
+      desc: '12-year-old male. Independent bilateral temporal seizure foci. Simultaneous onset in both temporal chains.',
+      region: 'Bilateral Temporal',
+      channels: [1, 2, 13, 14], // F7-T7, T7-P7, F8-T8, T8-P8
+      onset: 2.2, freq: 13, freqDrift: 5, amp: 2.7, harmonic: 0.4
+    },
+    {
+      id: 'cp',
+      title: 'Patient 9 — Centroparietal Epilepsy',
+      desc: '8-year-old female. Midline centroparietal onset with generalised spread. Vertex sharp waves at seizure onset.',
+      region: 'Centroparietal (Midline)',
+      channels: [16, 17, 6, 10], // FZ-CZ, CZ-PZ, C3-P3, C4-P4
+      onset: 3.8, freq: 16, freqDrift: 3, amp: 2.4, harmonic: 0.3
+    },
+    {
+      id: 'mf',
+      title: 'Patient 10 — Multifocal Left Hemisphere',
+      desc: '13-year-old male. Widespread left hemisphere seizure involving frontal, central, and temporal regions simultaneously.',
+      region: 'Left Hemisphere (Multifocal)',
+      channels: [0, 1, 5, 6, 2, 7], // FP1-F7, F7-T7, F3-C3, C3-P3, T7-P7, P3-O1
+      onset: 1.8, freq: 18, freqDrift: 6, amp: 2.0, harmonic: 0.35
+    }
+  ],
+
+  _generateSyntheticEEG(patient) {
     const T = 2560, nCh = 18, fs = 256;
     const eeg = new Array(T);
     for (let t = 0; t < T; t++) eeg[t] = new Float32Array(nCh);
 
+    // Background: pink noise + alpha rhythm
     for (let ch = 0; ch < nCh; ch++) {
       let prev = 0;
       for (let t = 0; t < T; t++) {
@@ -115,15 +211,15 @@ const App = {
       }
     }
 
-    // Seizure in left temporal channels starting at t=3s
-    const onset = 3 * fs;
-    for (const ch of [1, 2, 5, 6]) {
+    // Seizure in specified channels
+    const onset = Math.round(patient.onset * fs);
+    for (const ch of patient.channels) {
       for (let t = onset; t < T; t++) {
         const el = (t - onset) / fs;
-        const env = Math.min(1, el / 2) * 3;
-        const f = 15 + el * 5;
+        const env = Math.min(1, el / 2) * patient.amp;
+        const f = patient.freq + el * patient.freqDrift;
         eeg[t][ch] += env * Math.sin(2 * Math.PI * f * t / fs);
-        eeg[t][ch] += env * 0.4 * Math.sin(2 * Math.PI * f * 2 * t / fs);
+        eeg[t][ch] += env * patient.harmonic * Math.sin(2 * Math.PI * f * 2 * t / fs);
       }
     }
 
@@ -138,12 +234,16 @@ const App = {
     return eeg;
   },
 
-  _loadDemo() {
-    this.eegData = this._generateSyntheticEEG();
-    this._updateStatus('Synthetic demo data loaded — click Run Analysis');
+  _loadDemo(patientIdx) {
+    const patient = this._patients[patientIdx];
+    this.eegData = this._generateSyntheticEEG(patient);
+    this._updateStatus(`Loaded: ${patient.title} — click Run Analysis`);
     document.getElementById('btn-run').disabled = false;
-    Viz.renderEEG(this.eegData, this.metadata.channels, this.metadata.fs, 3.0, 'chart-eeg');
+    Viz.renderEEG(this.eegData, this.metadata.channels, this.metadata.fs, patient.onset, 'chart-eeg');
     document.querySelector('[data-tab="eeg"]').click();
+    // Close dropdown
+    document.getElementById('demo-menu').style.display = 'none';
+    setTimeout(() => document.getElementById('demo-menu').style.display = '', 200);
   },
 
   _handleUpload(e) {
@@ -204,10 +304,10 @@ const App = {
 
     try {
       const result = await PINN.infer(this.eegData, (step, loss) => {
-        const pct = ((step + 1) / 30 * 100).toFixed(0);
+        const pct = ((step + 1) / 20 * 100).toFixed(0);
         progressBar.style.width = pct + '%';
-        progressText.textContent = `Physics optimization: step ${step + 1}/30 — HH residual: ${loss.toFixed(6)}`;
-        Brain3D.updateEZProgress(step, 30);
+        progressText.textContent = `Physics optimization: step ${step + 1}/20 — HH residual: ${loss.toFixed(6)}`;
+        Brain3D.updateEZProgress(step, 20);
       });
 
       progress.style.display = 'none';

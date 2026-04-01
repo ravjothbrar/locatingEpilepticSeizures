@@ -240,6 +240,66 @@ button.active { background: var(--accent2); color: #000; border-color: var(--acc
   text-align: right;
 }
 
+/* === Demo Dropdown === */
+.demo-dropdown {
+  position: relative;
+}
+
+.demo-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-width: 340px;
+  max-height: 420px;
+  overflow-y: auto;
+  z-index: 50;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+.demo-dropdown:hover .demo-menu,
+.demo-menu:hover {
+  display: block;
+}
+
+.demo-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.12s;
+}
+
+.demo-item:last-child { border-bottom: none; }
+.demo-item:hover { background: var(--surface2); }
+
+.demo-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.demo-item-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.demo-item-region {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(68,136,255,0.15);
+  color: var(--accent);
+  margin-top: 4px;
+  font-weight: 600;
+}
+
 /* === Main Layout === */
 .main {
   display: flex;

@@ -23,7 +23,7 @@
         <div class="tutorial-icon">&#128200;</div>
         <h2>Getting Started</h2>
         <div class="tutorial-steps-list">
-          <div class="tutorial-item"><span class="tutorial-num">1</span> Click <strong>"Use Demo Data"</strong> to generate synthetic seizure data, or <strong>upload your own EEG</strong> (.csv, 18 channels, 256 Hz)</div>
+          <div class="tutorial-item"><span class="tutorial-num">1</span> Hover over <strong>"Sample Patients"</strong> to choose from 10 example cases with different EZ locations, or <strong>upload your own EEG</strong> (.csv, 18 channels, 256 Hz)</div>
           <div class="tutorial-item"><span class="tutorial-num">2</span> Click <strong>"Run Analysis"</strong> to run the PINN with physics optimization</div>
           <div class="tutorial-item"><span class="tutorial-num">3</span> Explore the <strong>3D brain</strong> to see the predicted seizure origin</div>
           <div class="tutorial-item"><span class="tutorial-num">4</span> Check the <strong>tabs</strong> for interpretability, physics compliance, and raw data</div>
@@ -78,7 +78,10 @@
         Upload EEG (.csv)
         <input type="file" id="file-input" accept=".csv,.edf">
       </label>
-      <button id="btn-demo">Use Demo Data</button>
+      <div class="demo-dropdown">
+        <button id="btn-demo">Sample Patients &#9660;</button>
+        <div class="demo-menu" id="demo-menu"></div>
+      </div>
       <button id="btn-run" class="primary" disabled>Run Analysis</button>
       <button id="btn-hands" style="display:none" title="Toggle hand tracking">Hands</button>
       <button id="btn-tutorial" title="Show tutorial again">?</button>
@@ -119,8 +122,8 @@
           <div id="results-content">
             <div class="empty-state">
               <h3>No analysis yet</h3>
-              <p>Upload EEG data or click "Use Demo Data" to generate<br>
-              synthetic seizure data, then click "Run Analysis".</p>
+              <p>Upload EEG data or hover over "Sample Patients" to choose<br>
+              from 10 example cases, then click "Run Analysis".</p>
               <p style="margin-top:12px; font-size:12px; color:#666">
                 The PINN predicts the 3D coordinates of the<br>
                 epileptogenic zone using Hodgkin-Huxley physics constraints.
@@ -261,7 +264,7 @@
               </div>
               <div class="pipe-step">
                 <span class="pipe-num">3</span>
-                <div><strong>Physics Optimization (30 steps)</strong><br>The HH state variables are refined through 30 gradient descent steps, minimising the residual of all 4 HH equations while staying close to the model's initial prediction.</div>
+                <div><strong>Physics Optimization (20 steps)</strong><br>The HH state variables are refined through 20 gradient descent steps, minimising the residual of all 4 HH equations while staying close to the model's initial prediction.</div>
               </div>
               <div class="pipe-step">
                 <span class="pipe-num">4</span>
