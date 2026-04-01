@@ -72,10 +72,26 @@
           <div class="result-card">
             <h3>PCA — Latent Space Decomposition</h3>
             <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px">
-              Principal components of the model's internal representation,
-              showing which dimensions drive the prediction.
+              PCA on the model's 128-dimensional latent representation across all 2560 timesteps.
+              Shows which internal dimensions capture the most variance in this patient's data.
             </p>
             <div id="chart-pca"></div>
+          </div>
+          <div class="result-card">
+            <h3>PC Activation Over Time</h3>
+            <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px">
+              How the top principal components evolve over the 10-second window.
+              Sharp changes at seizure onset reveal which latent dimensions encode seizure dynamics.
+            </p>
+            <div id="chart-pca-time"></div>
+          </div>
+          <div class="result-card">
+            <h3>PC — Hodgkin-Huxley Correlation</h3>
+            <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px">
+              Pearson correlation between each PC's timecourse and the HH state variables (V, m, h, n).
+              Strong correlations mean the model's internal features align with specific ion channel dynamics.
+            </p>
+            <div id="chart-pca-corr"></div>
           </div>
         </div>
 

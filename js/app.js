@@ -180,14 +180,26 @@ const App = {
       Viz.renderConvergence(result.hhHistory, 'chart-convergence');
       Viz.renderPhysicsStates(result.physics, this.metadata.fs, 'chart-physics');
 
-      // PCA interpretability
-      if (result.latent) {
-        const latentMatrix = [result.latent];
-        const pcaResult = PCAModule.fitTransform(latentMatrix, 15);
-        Viz.renderPCAScree(
-          this.metadata.pca.variance_ratio.slice(0, 15),
-          'chart-pca'
-        );
+      // PCA interpretability — across timesteps
+      if (result.latentMatrix && result.latentMatrix.length > 1) {
+        // Subsample timesteps for speed (every 10th → 256 points)
+        const step = 10;
+        const subLatent = result.latentMatrix.filter((_, i) => i % step === 0);
+        const pcaResult = PCAModule.fitTransform(subLatent, 10);
+
+        // Correlate PCs with HH physics variables
+        const subPhysics = {
+          V: result.physics.V.filter((_, i) => i % step === 0),
+          m: result.physics.m.filter((_, i) => i % step === 0),
+          h: result.physics.h.filter((_, i) => i % step === 0),
+          n: result.physics.n.filter((_, i) => i % step === 0),
+        };
+
+        const correlations = this._correlatePCsWithHH(pcaResult.projected, subPhysics);
+
+        Viz.renderPCAScree(pcaResult.explainedVariance, 'chart-pca');
+        Viz.renderPCATimecourse(pcaResult.projected, this.metadata.fs, step, 'chart-pca-time');
+        Viz.renderPCAHHCorrelation(correlations, 'chart-pca-corr');
       }
 
       this._updateStatus('Analysis complete');
@@ -254,6 +266,36 @@ const App = {
     setTimeout(() => {
       Viz.renderRankedRegions(result.coord, this.metadata, 'chart-ranked');
     }, 50);
+  },
+
+  /** Pearson correlation between each PC timecourse and each HH variable. */
+  _correlatePCsWithHH(projected, physics) {
+    const hhVars = ['V', 'm', 'h', 'n'];
+    const nPCs = projected[0].length;
+    const N = projected.length;
+
+    function pearson(a, b) {
+      let sumA = 0, sumB = 0, sumAB = 0, sumA2 = 0, sumB2 = 0;
+      for (let i = 0; i < N; i++) {
+        sumA += a[i]; sumB += b[i];
+        sumAB += a[i] * b[i];
+        sumA2 += a[i] * a[i]; sumB2 += b[i] * b[i];
+      }
+      const num = N * sumAB - sumA * sumB;
+      const den = Math.sqrt((N * sumA2 - sumA * sumA) * (N * sumB2 - sumB * sumB));
+      return den < 1e-10 ? 0 : num / den;
+    }
+
+    const corr = [];
+    for (let pc = 0; pc < Math.min(nPCs, 10); pc++) {
+      const pcValues = projected.map(row => row[pc]);
+      const row = {};
+      for (const hh of hhVars) {
+        row[hh] = pearson(pcValues, physics[hh]);
+      }
+      corr.push(row);
+    }
+    return corr;
   },
 
   _updateStatus(msg) {

@@ -82,12 +82,15 @@ const PINN = {
       I_arr.push(physData[base + 4] * 20);
     }
 
-    // Extract latent for PCA interpretability
+    // Extract full latent matrix [T, 128] for PCA across timesteps
     const latentData = await rawLatent.data();
-    const latentAvg = new Array(128).fill(0);
-    for (let t = 0; t < T; t++)
+    const latentMatrix = [];
+    for (let t = 0; t < T; t++) {
+      const row = new Array(128);
       for (let d = 0; d < 128; d++)
-        latentAvg[d] += latentData[t * 128 + d] / T;
+        row[d] = latentData[t * 128 + d];
+      latentMatrix.push(row);
+    }
 
     // --- Test-time HH optimization (output-space) ---
     const V_t = tf.variable(tf.tensor2d([V_arr], [1, T]));
@@ -156,7 +159,7 @@ const PINN = {
       physicsCompliance,
       hhResidual: finalLoss,
       hhHistory,
-      latent: latentAvg,
+      latentMatrix,  // [2560, 128] — full per-timestep latent for PCA
       physics: {
         V: Array.from(refinedV),
         m: Array.from(refinedM),

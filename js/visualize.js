@@ -150,6 +150,64 @@ const Viz = {
     Plotly.newPlot(containerId, traces, layout, { responsive: true });
   },
 
+  /** PCA timecourse — how top PCs evolve over time (reveals seizure onset). */
+  renderPCATimecourse(projected, fs, subsampleStep, containerId) {
+    const N = projected.length;
+    const time = Array.from({ length: N }, (_, i) => i * subsampleStep / fs);
+    const nShow = Math.min(5, projected[0].length);
+
+    const traces = [];
+    for (let pc = 0; pc < nShow; pc++) {
+      traces.push({
+        x: time,
+        y: projected.map(row => row[pc]),
+        type: 'scatter',
+        mode: 'lines',
+        name: `PC${pc + 1}`,
+        line: { width: 1.5 },
+      });
+    }
+
+    Plotly.newPlot(containerId, traces, {
+      title: 'Principal Components Over Time',
+      xaxis: { title: 'Time (s)' },
+      yaxis: { title: 'PC Activation' },
+      margin: { l: 50, r: 20, t: 40, b: 40 },
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      font: { color: '#ccc' },
+      legend: { x: 0, y: 1.2, orientation: 'h' },
+      height: 280,
+    }, { responsive: true });
+  },
+
+  /** Heatmap: correlation between PCs and HH variables. */
+  renderPCAHHCorrelation(correlations, containerId) {
+    const hhVars = ['V', 'm', 'h', 'n'];
+    const nPCs = correlations.length;
+    const z = hhVars.map(hh => correlations.map(row => row[hh]));
+
+    Plotly.newPlot(containerId, [{
+      z,
+      x: Array.from({ length: nPCs }, (_, i) => `PC${i + 1}`),
+      y: hhVars.map(v => ({ V: 'Voltage (V)', m: 'Na+ act. (m)', h: 'Na+ inact. (h)', n: 'K+ act. (n)' }[v])),
+      type: 'heatmap',
+      colorscale: [
+        [0, '#4444ff'], [0.25, '#2222aa'], [0.5, '#111133'],
+        [0.75, '#aa2222'], [1, '#ff4444']
+      ],
+      zmin: -1, zmax: 1,
+      colorbar: { title: 'Pearson r', titleside: 'right' },
+    }], {
+      title: 'PC — Hodgkin-Huxley Correlation',
+      margin: { l: 100, r: 60, t: 40, b: 40 },
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      font: { color: '#ccc' },
+      height: 220,
+    }, { responsive: true });
+  },
+
   /** Physics states (V, m, h, n) plot. */
   renderPhysicsStates(physics, fs, containerId) {
     const T = physics.V.length;
