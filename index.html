@@ -10,6 +10,66 @@
 </head>
 <body>
 
+  <!-- Tutorial Overlay -->
+  <div id="tutorial-overlay" class="tutorial-overlay">
+    <div class="tutorial-modal">
+      <div class="tutorial-step" data-step="0">
+        <div class="tutorial-icon">&#129504;</div>
+        <h2>Seizure Origin Detection</h2>
+        <p>This tool uses a <strong>Physics-Informed Neural Network</strong> to predict where a seizure originated in the brain, using the Hodgkin-Huxley equations as physical constraints.</p>
+        <p class="tutorial-sub">Trained on the CHB-MIT Scalp EEG Database. All inference runs in your browser — no data leaves your device.</p>
+      </div>
+      <div class="tutorial-step" data-step="1" style="display:none">
+        <div class="tutorial-icon">&#128200;</div>
+        <h2>Getting Started</h2>
+        <div class="tutorial-steps-list">
+          <div class="tutorial-item"><span class="tutorial-num">1</span> Click <strong>"Use Demo Data"</strong> to generate synthetic seizure data, or <strong>upload your own EEG</strong> (.csv, 18 channels, 256 Hz)</div>
+          <div class="tutorial-item"><span class="tutorial-num">2</span> Click <strong>"Run Analysis"</strong> to run the PINN with physics optimization</div>
+          <div class="tutorial-item"><span class="tutorial-num">3</span> Explore the <strong>3D brain</strong> to see the predicted seizure origin</div>
+          <div class="tutorial-item"><span class="tutorial-num">4</span> Check the <strong>tabs</strong> for interpretability, physics compliance, and raw data</div>
+        </div>
+      </div>
+      <div class="tutorial-step" data-step="2" style="display:none">
+        <div class="tutorial-icon">&#129513;</div>
+        <h2>3D Brain Controls</h2>
+        <div class="tutorial-steps-list">
+          <div class="tutorial-item"><span class="tutorial-num">&#128433;</span> <strong>Left-click + drag</strong> — Rotate the brain</div>
+          <div class="tutorial-item"><span class="tutorial-num">&#128736;</span> <strong>Scroll wheel</strong> — Zoom in/out</div>
+          <div class="tutorial-item"><span class="tutorial-num">&#128433;</span> <strong>Right-click + drag</strong> — Pan the view</div>
+          <div class="tutorial-item"><span class="tutorial-num">&#128065;</span> <strong>Click an electrode</strong> — See its name and MNI coordinates</div>
+          <div class="tutorial-item"><span class="tutorial-num">&#9995;</span> <strong>Hand tracking</strong> — Pinch to rotate, spread to zoom, fist to reset (if webcam available)</div>
+        </div>
+      </div>
+      <div class="tutorial-step" data-step="3" style="display:none">
+        <div class="tutorial-icon">&#128300;</div>
+        <h2>Understanding Results</h2>
+        <div class="tutorial-steps-list">
+          <div class="tutorial-item"><span class="tutorial-num" style="background:var(--danger)">&#128308;</span> <strong>Red hotspot</strong> on the brain = predicted epileptogenic zone (EZ)</div>
+          <div class="tutorial-item"><span class="tutorial-num" style="background:var(--accent)">&#128309;</span> <strong>Electrode colors</strong> = proximity to EZ (red=close, blue=far)</div>
+          <div class="tutorial-item"><span class="tutorial-num" style="background:var(--accent2)">&#128994;</span> <strong>Physics compliance</strong> = how well the prediction satisfies the Hodgkin-Huxley equations</div>
+          <div class="tutorial-item"><span class="tutorial-num" style="background:var(--warn)">&#128993;</span> <strong>PCA insights</strong> = which internal features drive the prediction</div>
+        </div>
+      </div>
+      <div class="tutorial-nav">
+        <button id="tutorial-prev" style="visibility:hidden">Back</button>
+        <div class="tutorial-dots">
+          <span class="tutorial-dot active"></span>
+          <span class="tutorial-dot"></span>
+          <span class="tutorial-dot"></span>
+          <span class="tutorial-dot"></span>
+        </div>
+        <button id="tutorial-next" class="primary">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3D Brain Hints (shown briefly after tutorial) -->
+  <div id="brain-hints" class="brain-hints" style="display:none">
+    <div class="hint-item">Drag to rotate</div>
+    <div class="hint-item">Scroll to zoom</div>
+    <div class="hint-item">Click electrode for details</div>
+  </div>
+
   <!-- Header -->
   <header class="header">
     <h1>Seizure Origin Detection <span>— Physics-Informed Neural Network</span></h1>
@@ -21,6 +81,7 @@
       <button id="btn-demo">Use Demo Data</button>
       <button id="btn-run" class="primary" disabled>Run Analysis</button>
       <button id="btn-hands" style="display:none" title="Toggle hand tracking">Hands</button>
+      <button id="btn-tutorial" title="Show tutorial again">?</button>
       <span id="status">Initializing...</span>
     </div>
   </header>
@@ -49,6 +110,7 @@
         <button class="tab-btn" data-tab="interpret">Interpretability</button>
         <button class="tab-btn" data-tab="physics">Physics</button>
         <button class="tab-btn" data-tab="eeg">EEG Data</button>
+        <button class="tab-btn" data-tab="about">How It Works</button>
       </div>
 
       <div class="tab-content">
@@ -69,9 +131,10 @@
 
         <!-- Interpretability Tab -->
         <div class="tab-panel" id="tab-interpret">
+          <div id="pca-insights" class="insights-container"></div>
           <div class="result-card">
             <h3>PCA — Latent Space Decomposition</h3>
-            <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px">
+            <p class="card-desc">
               PCA on the model's 128-dimensional latent representation across all 2560 timesteps.
               Shows which internal dimensions capture the most variance in this patient's data.
             </p>
@@ -79,7 +142,7 @@
           </div>
           <div class="result-card">
             <h3>PC Activation Over Time</h3>
-            <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px">
+            <p class="card-desc">
               How the top principal components evolve over the 10-second window.
               Sharp changes at seizure onset reveal which latent dimensions encode seizure dynamics.
             </p>
@@ -87,7 +150,7 @@
           </div>
           <div class="result-card">
             <h3>PC — Hodgkin-Huxley Correlation</h3>
-            <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px">
+            <p class="card-desc">
               Pearson correlation between each PC's timecourse and the HH state variables (V, m, h, n).
               Strong correlations mean the model's internal features align with specific ion channel dynamics.
             </p>
@@ -99,7 +162,7 @@
         <div class="tab-panel" id="tab-physics">
           <div class="result-card">
             <h3>HH Optimization Convergence</h3>
-            <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px">
+            <p class="card-desc">
               Physics residual during test-time optimization.
               Lower = better compliance with Hodgkin-Huxley equations.
             </p>
@@ -107,7 +170,7 @@
           </div>
           <div class="result-card">
             <h3>Hodgkin-Huxley State Variables</h3>
-            <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px">
+            <p class="card-desc">
               Membrane voltage (V) and gating variables (m, h, n)
               predicted by the physics head, refined by HH constraints.
             </p>
@@ -119,11 +182,102 @@
         <div class="tab-panel" id="tab-eeg">
           <div class="result-card">
             <h3>Raw EEG Channels</h3>
-            <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px">
+            <p class="card-desc">
               18-channel scalp EEG (10-20 bipolar montage).
               Red dashed line indicates detected seizure onset.
             </p>
             <div id="chart-eeg"></div>
+          </div>
+          <div class="result-card" id="upload-guide">
+            <h3>Upload Format Guide</h3>
+            <p class="card-desc">Your CSV should have:</p>
+            <ul class="format-list">
+              <li><strong>18 columns</strong> — one per EEG channel (10-20 bipolar montage)</li>
+              <li><strong>2560 rows</strong> — 10 seconds at 256 Hz (shorter files are zero-padded)</li>
+              <li><strong>No header row</strong> — just numeric values</li>
+              <li><strong>Channel order:</strong> FP1-F7, F7-T7, T7-P7, P7-O1, FP1-F3, F3-C3, C3-P3, P3-O1, FP2-F4, F4-C4, C4-P4, P4-O2, FP2-F8, F8-T8, T8-P8, P8-O2, FZ-CZ, CZ-PZ</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- How It Works Tab -->
+        <div class="tab-panel" id="tab-about">
+          <div class="result-card">
+            <h3>Overview</h3>
+            <p class="about-text">This system predicts the <strong>epileptogenic zone (EZ)</strong> — the brain region where a seizure originates — from scalp EEG data. It outputs exact <strong>3D coordinates</strong> (in MNI space) and a <strong>confidence spread</strong>, visualised as a glowing hotspot on the interactive brain model.</p>
+          </div>
+
+          <div class="result-card">
+            <h3>The Model: Physics-Informed Neural Network</h3>
+            <p class="about-text">Unlike standard neural networks that only learn patterns from data, a <strong>PINN</strong> is also constrained by the laws of physics. During training, the model learns to reject predictions that violate the Hodgkin-Huxley equations — the fundamental equations governing how neurons fire.</p>
+            <div class="architecture-diagram">
+              <div class="arch-block arch-input">EEG Input<br><span>18ch &times; 2560t</span></div>
+              <div class="arch-arrow">&rarr;</div>
+              <div class="arch-block arch-pca">PCA<br><span>Decorrelate</span></div>
+              <div class="arch-arrow">&rarr;</div>
+              <div class="arch-block arch-encoder">Encoder<br><span>3&times;128 Tanh</span></div>
+              <div class="arch-arrow">&rarr;</div>
+              <div class="arch-split">
+                <div class="arch-block arch-coord">EZ Head<br><span>(x,y,z,&sigma;)</span></div>
+                <div class="arch-block arch-phys">Physics Head<br><span>V,m,h,n,I</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="result-card">
+            <h3>The 4 Hodgkin-Huxley Equations</h3>
+            <p class="about-text">These equations describe how electrical signals propagate through neurons via ion channels. They are embedded as constraints in both training and inference:</p>
+            <div class="equation-list">
+              <div class="equation">
+                <span class="eq-label">1. Membrane Voltage</span>
+                <code>C_m &middot; dV/dt = I_ext - g_Na&middot;m&sup3;&middot;h&middot;(V-E_Na) - g_K&middot;n&sup4;&middot;(V-E_K) - g_L&middot;(V-E_L)</code>
+              </div>
+              <div class="equation">
+                <span class="eq-label">2. Sodium Activation (m)</span>
+                <code>dm/dt = &alpha;_m(V)&middot;(1-m) - &beta;_m(V)&middot;m</code>
+              </div>
+              <div class="equation">
+                <span class="eq-label">3. Sodium Inactivation (h)</span>
+                <code>dh/dt = &alpha;_h(V)&middot;(1-h) - &beta;_h(V)&middot;h</code>
+              </div>
+              <div class="equation">
+                <span class="eq-label">4. Potassium Activation (n)</span>
+                <code>dn/dt = &alpha;_n(V)&middot;(1-n) - &beta;_n(V)&middot;n</code>
+              </div>
+            </div>
+          </div>
+
+          <div class="result-card">
+            <h3>Inference Pipeline</h3>
+            <p class="about-text">When you click "Run Analysis", the following happens entirely in your browser:</p>
+            <div class="pipeline-steps">
+              <div class="pipe-step">
+                <span class="pipe-num">1</span>
+                <div><strong>PCA Preprocessing</strong><br>Your 18-channel EEG is decorrelated using principal component analysis, matching the training data's distribution.</div>
+              </div>
+              <div class="pipe-step">
+                <span class="pipe-num">2</span>
+                <div><strong>Forward Pass</strong><br>The pre-trained PINN runs a forward pass, outputting initial 3D coordinates and Hodgkin-Huxley state variables (V, m, h, n) at each timestep.</div>
+              </div>
+              <div class="pipe-step">
+                <span class="pipe-num">3</span>
+                <div><strong>Physics Optimization (30 steps)</strong><br>The HH state variables are refined through 30 gradient descent steps, minimising the residual of all 4 HH equations while staying close to the model's initial prediction.</div>
+              </div>
+              <div class="pipe-step">
+                <span class="pipe-num">4</span>
+                <div><strong>PCA Interpretability</strong><br>The model's internal 128-dimensional latent representation is decomposed via PCA. Each principal component is correlated with the HH variables to reveal what the model learned.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="result-card">
+            <h3>Training Data</h3>
+            <p class="about-text">The model was trained on the <strong>CHB-MIT Scalp EEG Database</strong> (PhysioNet) — 5 paediatric patients with annotated seizure onsets. EEG segments were augmented (noise, scaling, channel dropout, time shift) and the EZ ground truth was derived from the energy-weighted centroid of electrodes showing earliest ictal activity.</p>
+          </div>
+
+          <div class="result-card">
+            <h3>Limitations</h3>
+            <p class="about-text">Scalp EEG has ~1-2 cm spatial resolution. The predicted EZ is a probabilistic hotspot, not a surgical-precision pinpoint. This tool is for <strong>research and educational purposes only</strong> — it is not a medical device. Clinical EZ localisation requires invasive monitoring (SEEG) and expert interpretation.</p>
           </div>
         </div>
       </div>

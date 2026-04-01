@@ -1,12 +1,14 @@
 /**
  * Main application orchestration.
- * Handles UI, file upload, synthetic data generation, and inference pipeline.
+ * Handles UI, file upload, synthetic data, inference, tutorial, and PCA insights.
  */
 
 const App = {
   eegData: null,
   metadata: null,
   isRunning: false,
+  lastPCAResult: null,
+  lastCorrelations: null,
 
   async init() {
     this._updateStatus('Loading PINN model...');
@@ -18,8 +20,9 @@ const App = {
 
     this._updateStatus('Ready — upload EEG data or use demo');
     this._bindUI();
+    this._initTutorial();
 
-    // Try init hand tracking (non-blocking)
+    // Non-blocking hand tracking init
     HandTracker.init().then(ok => {
       if (ok) document.getElementById('btn-hands').style.display = 'inline-flex';
     });
@@ -32,6 +35,7 @@ const App = {
       const active = await HandTracker.toggle();
       document.getElementById('btn-hands').classList.toggle('active', active);
     });
+    document.getElementById('btn-tutorial').addEventListener('click', () => this._showTutorial());
     document.getElementById('file-input').addEventListener('change', (e) => this._handleUpload(e));
 
     // Tabs
@@ -45,46 +49,90 @@ const App = {
     });
   },
 
-  /** Generate synthetic EEG from Hodgkin-Huxley equations. */
+  // === Tutorial ===
+  _tutorialStep: 0,
+  _initTutorial() {
+    const seen = localStorage.getItem('ez-tutorial-seen');
+    if (seen) {
+      document.getElementById('tutorial-overlay').classList.add('hidden');
+      this._showBrainHints();
+      return;
+    }
+
+    document.getElementById('tutorial-next').addEventListener('click', () => this._tutorialNav(1));
+    document.getElementById('tutorial-prev').addEventListener('click', () => this._tutorialNav(-1));
+  },
+
+  _showTutorial() {
+    this._tutorialStep = 0;
+    this._tutorialUpdate();
+    document.getElementById('tutorial-overlay').classList.remove('hidden');
+  },
+
+  _tutorialNav(dir) {
+    this._tutorialStep += dir;
+    if (this._tutorialStep > 3) {
+      document.getElementById('tutorial-overlay').classList.add('hidden');
+      localStorage.setItem('ez-tutorial-seen', '1');
+      this._showBrainHints();
+      return;
+    }
+    this._tutorialStep = Math.max(0, this._tutorialStep);
+    this._tutorialUpdate();
+  },
+
+  _tutorialUpdate() {
+    const steps = document.querySelectorAll('.tutorial-step');
+    steps.forEach(s => s.style.display = 'none');
+    const current = document.querySelector(`.tutorial-step[data-step="${this._tutorialStep}"]`);
+    if (current) current.style.display = 'block';
+
+    const dots = document.querySelectorAll('.tutorial-dot');
+    dots.forEach((d, i) => d.classList.toggle('active', i === this._tutorialStep));
+
+    document.getElementById('tutorial-prev').style.visibility = this._tutorialStep === 0 ? 'hidden' : 'visible';
+    const nextBtn = document.getElementById('tutorial-next');
+    nextBtn.textContent = this._tutorialStep === 3 ? 'Get Started' : 'Next';
+  },
+
+  _showBrainHints() {
+    const hints = document.getElementById('brain-hints');
+    hints.style.display = 'flex';
+    setTimeout(() => { hints.style.display = 'none'; }, 4500);
+  },
+
+  // === Synthetic Data ===
   _generateSyntheticEEG() {
     const T = 2560, nCh = 18, fs = 256;
-    const eeg = Array.from({ length: T }, () => new Array(nCh).fill(0));
+    const eeg = new Array(T);
+    for (let t = 0; t < T; t++) eeg[t] = new Float32Array(nCh);
 
-    // Simulate each channel with pink noise + alpha rhythm
     for (let ch = 0; ch < nCh; ch++) {
       let prev = 0;
       for (let t = 0; t < T; t++) {
-        // 1/f noise (simple approximation)
-        const white = (Math.random() - 0.5) * 2;
-        prev = 0.98 * prev + 0.02 * white;
-        // Alpha rhythm (10 Hz)
-        const alpha = Math.sin(2 * Math.PI * 10 * t / fs) * 0.3;
-        eeg[t][ch] = prev + alpha;
+        prev = 0.98 * prev + 0.02 * (Math.random() - 0.5) * 2;
+        eeg[t][ch] = prev + Math.sin(2 * Math.PI * 10 * t / fs) * 0.3;
       }
     }
 
-    // Inject seizure in channels 5-8 (left temporal) starting at t=3s
-    const onsetSample = 3 * fs;
-    const seizureChannels = [1, 2, 5, 6]; // F7-T7, T7-P7, F3-C3, C3-P3 (left hemisphere)
-    for (const ch of seizureChannels) {
-      for (let t = onsetSample; t < T; t++) {
-        const elapsed = (t - onsetSample) / fs;
-        // Increasing amplitude oscillation (seizure-like)
-        const envelope = Math.min(1, elapsed / 2) * 3;
-        const freq = 15 + elapsed * 5; // increasing frequency
-        eeg[t][ch] += envelope * Math.sin(2 * Math.PI * freq * t / fs);
-        // Add harmonics
-        eeg[t][ch] += envelope * 0.4 * Math.sin(2 * Math.PI * freq * 2 * t / fs);
+    // Seizure in left temporal channels starting at t=3s
+    const onset = 3 * fs;
+    for (const ch of [1, 2, 5, 6]) {
+      for (let t = onset; t < T; t++) {
+        const el = (t - onset) / fs;
+        const env = Math.min(1, el / 2) * 3;
+        const f = 15 + el * 5;
+        eeg[t][ch] += env * Math.sin(2 * Math.PI * f * t / fs);
+        eeg[t][ch] += env * 0.4 * Math.sin(2 * Math.PI * f * 2 * t / fs);
       }
     }
 
-    // Normalize per channel
+    // Z-score normalize
     for (let ch = 0; ch < nCh; ch++) {
-      let sum = 0, sum2 = 0;
-      for (let t = 0; t < T; t++) { sum += eeg[t][ch]; sum2 += eeg[t][ch] ** 2; }
-      const mean = sum / T;
-      const std = Math.sqrt(sum2 / T - mean ** 2) || 1;
-      for (let t = 0; t < T; t++) eeg[t][ch] = (eeg[t][ch] - mean) / std;
+      let s = 0, s2 = 0;
+      for (let t = 0; t < T; t++) { s += eeg[t][ch]; s2 += eeg[t][ch] ** 2; }
+      const mu = s / T, sig = Math.sqrt(s2 / T - mu * mu) || 1;
+      for (let t = 0; t < T; t++) eeg[t][ch] = (eeg[t][ch] - mu) / sig;
     }
 
     return eeg;
@@ -94,10 +142,7 @@ const App = {
     this.eegData = this._generateSyntheticEEG();
     this._updateStatus('Synthetic demo data loaded — click Run Analysis');
     document.getElementById('btn-run').disabled = false;
-
     Viz.renderEEG(this.eegData, this.metadata.channels, this.metadata.fs, 3.0, 'chart-eeg');
-
-    // Switch to EEG tab to show the data
     document.querySelector('[data-tab="eeg"]').click();
   },
 
@@ -113,21 +158,20 @@ const App = {
         const rows = parsed.data.filter(r => r.length >= 18 && r.every(v => typeof v === 'number'));
 
         if (rows.length < 256) {
-          this._updateStatus('Error: need at least 1 second of data (256 rows)');
+          this._updateStatus('Error: need at least 1 second of data (256 rows at 256 Hz)');
           return;
         }
 
-        // Pad or trim to 2560 samples
-        while (rows.length < 2560) rows.push(rows[rows.length - 1]);
+        // Pad or trim to 2560
+        while (rows.length < 2560) rows.push([...rows[rows.length - 1]]);
         this.eegData = rows.slice(0, 2560);
 
-        // Normalize
+        // Z-score normalize
         for (let ch = 0; ch < 18; ch++) {
-          let sum = 0, sum2 = 0;
-          for (let t = 0; t < 2560; t++) { sum += this.eegData[t][ch]; sum2 += this.eegData[t][ch] ** 2; }
-          const mean = sum / 2560;
-          const std = Math.sqrt(sum2 / 2560 - mean ** 2) || 1;
-          for (let t = 0; t < 2560; t++) this.eegData[t][ch] = (this.eegData[t][ch] - mean) / std;
+          let s = 0, s2 = 0;
+          for (let t = 0; t < 2560; t++) { s += this.eegData[t][ch]; s2 += this.eegData[t][ch] ** 2; }
+          const mu = s / 2560, sig = Math.sqrt(s2 / 2560 - mu * mu) || 1;
+          for (let t = 0; t < 2560; t++) this.eegData[t][ch] = (this.eegData[t][ch] - mu) / sig;
         }
 
         this._updateStatus('File loaded — click Run Analysis');
@@ -141,6 +185,7 @@ const App = {
     reader.readAsText(file);
   },
 
+  // === Inference ===
   async _runInference() {
     if (this.isRunning || !this.eegData) return;
     this.isRunning = true;
@@ -154,9 +199,7 @@ const App = {
     const progressText = document.getElementById('progress-text');
     progress.style.display = 'block';
 
-    // Switch to results tab
     document.querySelector('[data-tab="results"]').click();
-
     this._updateStatus('Running PINN inference with HH physics optimization...');
 
     try {
@@ -169,38 +212,42 @@ const App = {
 
       progress.style.display = 'none';
 
-      // 3D brain hotspot
+      // 3D brain
       Brain3D.showEZ(result.coord, this.metadata);
 
       // Results panel
       this._renderResults(result);
 
-      // Charts
-      Viz.renderRankedRegions(result.coord, this.metadata, 'chart-ranked');
+      // Charts (defer non-critical ones)
       Viz.renderConvergence(result.hhHistory, 'chart-convergence');
       Viz.renderPhysicsStates(result.physics, this.metadata.fs, 'chart-physics');
 
-      // PCA interpretability — across timesteps
-      if (result.latentMatrix && result.latentMatrix.length > 1) {
-        // Subsample timesteps for speed (every 10th → 256 points)
-        const step = 10;
-        const subLatent = result.latentMatrix.filter((_, i) => i % step === 0);
-        const pcaResult = PCAModule.fitTransform(subLatent, 10);
+      // PCA — run async to not block UI
+      requestAnimationFrame(() => {
+        if (result.latentMatrix && result.latentMatrix.length > 1) {
+          const step = 10;
+          const subLatent = result.latentMatrix.filter((_, i) => i % step === 0);
+          const pcaResult = PCAModule.fitTransform(subLatent, 10);
+          this.lastPCAResult = pcaResult;
 
-        // Correlate PCs with HH physics variables
-        const subPhysics = {
-          V: result.physics.V.filter((_, i) => i % step === 0),
-          m: result.physics.m.filter((_, i) => i % step === 0),
-          h: result.physics.h.filter((_, i) => i % step === 0),
-          n: result.physics.n.filter((_, i) => i % step === 0),
-        };
+          const subPhysics = {
+            V: result.physics.V.filter((_, i) => i % step === 0),
+            m: result.physics.m.filter((_, i) => i % step === 0),
+            h: result.physics.h.filter((_, i) => i % step === 0),
+            n: result.physics.n.filter((_, i) => i % step === 0),
+          };
 
-        const correlations = this._correlatePCsWithHH(pcaResult.projected, subPhysics);
+          const correlations = this._correlatePCsWithHH(pcaResult.projected, subPhysics);
+          this.lastCorrelations = correlations;
 
-        Viz.renderPCAScree(pcaResult.explainedVariance, 'chart-pca');
-        Viz.renderPCATimecourse(pcaResult.projected, this.metadata.fs, step, 'chart-pca-time');
-        Viz.renderPCAHHCorrelation(correlations, 'chart-pca-corr');
-      }
+          Viz.renderPCAScree(pcaResult.explainedVariance, 'chart-pca');
+          Viz.renderPCATimecourse(pcaResult.projected, this.metadata.fs, step, 'chart-pca-time');
+          Viz.renderPCAHHCorrelation(correlations, 'chart-pca-corr');
+
+          // Generate insight buttons
+          this._renderPCAInsights(pcaResult, correlations);
+        }
+      });
 
       this._updateStatus('Analysis complete');
 
@@ -214,6 +261,7 @@ const App = {
     this.isRunning = false;
   },
 
+  // === Results Rendering ===
   _renderResults(result) {
     const c = result.coord;
     const badge = result.physicsCompliance > 0.7 ? 'compliance-high' :
@@ -236,7 +284,7 @@ const App = {
             <span class="coord-value">${c.mni_z.toFixed(1)} mm</span>
           </div>
           <div class="coord-item">
-            <span class="coord-label">Spread (σ)</span>
+            <span class="coord-label">Spread (&sigma;)</span>
             <span class="coord-value">${c.sigma.toFixed(3)}</span>
           </div>
         </div>
@@ -262,40 +310,129 @@ const App = {
       </div>
     `;
 
-    // Re-render ranked chart into the newly created div
     setTimeout(() => {
       Viz.renderRankedRegions(result.coord, this.metadata, 'chart-ranked');
     }, 50);
   },
 
-  /** Pearson correlation between each PC timecourse and each HH variable. */
+  // === PCA Insights ===
+  _renderPCAInsights(pcaResult, correlations) {
+    const container = document.getElementById('pca-insights');
+    const insights = [];
+    const ev = pcaResult.explainedVariance;
+
+    // Insight 1: Dimensionality
+    const cumul90 = ev.findIndex((_, i) => ev.slice(0, i + 1).reduce((a, b) => a + b, 0) >= 0.9) + 1;
+    if (cumul90 > 0 && cumul90 <= 5) {
+      insights.push({
+        icon: '&#9889;',
+        title: `Low-dimensional representation (${cumul90} PCs capture 90%)`,
+        text: `The model's latent space is highly structured — only ${cumul90} principal components explain 90% of the variance. This means the model found a compact, interpretable encoding of the EEG dynamics.`,
+        tag: 'good', tagText: 'Highly interpretable'
+      });
+    } else if (cumul90 > 5) {
+      insights.push({
+        icon: '&#128200;',
+        title: `${cumul90} PCs needed for 90% variance`,
+        text: `The latent representation is moderately complex. The model is using many dimensions to encode the EEG, which may reflect the complexity of this patient's seizure dynamics.`,
+        tag: 'neutral', tagText: 'Complex representation'
+      });
+    }
+
+    // Insight 2: Dominant PC
+    if (ev[0] > 0.3) {
+      insights.push({
+        icon: '&#127919;',
+        title: `PC1 dominates (${(ev[0] * 100).toFixed(1)}% variance)`,
+        text: `A single latent dimension captures ${(ev[0] * 100).toFixed(1)}% of the model's internal variance. This dominant component likely encodes the primary seizure vs. baseline distinction.`,
+        tag: 'good', tagText: 'Clear signal'
+      });
+    }
+
+    // Insight 3: HH correlations
+    const hhNames = { V: 'membrane voltage (V)', m: 'sodium activation (m)', h: 'sodium inactivation (h)', n: 'potassium activation (n)' };
+    const hhVars = ['V', 'm', 'h', 'n'];
+    let strongestCorr = { pc: 0, hh: 'V', r: 0 };
+
+    correlations.forEach((row, pc) => {
+      hhVars.forEach(hh => {
+        if (Math.abs(row[hh]) > Math.abs(strongestCorr.r)) {
+          strongestCorr = { pc, hh, r: row[hh] };
+        }
+      });
+    });
+
+    if (Math.abs(strongestCorr.r) > 0.5) {
+      insights.push({
+        icon: '&#129516;',
+        title: `PC${strongestCorr.pc + 1} correlates with ${hhNames[strongestCorr.hh]} (r=${strongestCorr.r.toFixed(2)})`,
+        text: `This means the model's internal feature PC${strongestCorr.pc + 1} tracks ${hhNames[strongestCorr.hh]} — evidence that the Hodgkin-Huxley physics constraints shaped what the model learned, not just statistical patterns.`,
+        tag: 'good', tagText: 'Physics-informed features'
+      });
+    } else if (Math.abs(strongestCorr.r) > 0.2) {
+      insights.push({
+        icon: '&#128268;',
+        title: `Moderate HH correlation (max r=${strongestCorr.r.toFixed(2)} on PC${strongestCorr.pc + 1})`,
+        text: `The model's internal features show moderate alignment with Hodgkin-Huxley variables. The physics constraints influenced the learned representation, but the model also encodes non-HH patterns.`,
+        tag: 'neutral', tagText: 'Partial physics alignment'
+      });
+    } else {
+      insights.push({
+        icon: '&#128300;',
+        title: 'Weak HH correlation across all PCs',
+        text: 'The model\'s internal features don\'t strongly align with individual HH variables. This could mean the model learned higher-order combinations of ion channel dynamics, or that the physics constraints need more training to shape the features.',
+        tag: 'warn', tagText: 'Investigate further'
+      });
+    }
+
+    // Insight 4: Multiple HH variables correlated
+    const strongPCs = correlations.filter((row, pc) =>
+      hhVars.some(hh => Math.abs(row[hh]) > 0.4)
+    ).length;
+    if (strongPCs >= 3) {
+      insights.push({
+        icon: '&#129504;',
+        title: `${strongPCs} PCs encode distinct HH dynamics`,
+        text: `Multiple principal components each align with different Hodgkin-Huxley variables, suggesting the model disentangled ion channel dynamics into separate latent features. This is ideal for interpretability.`,
+        tag: 'good', tagText: 'Disentangled features'
+      });
+    }
+
+    // Render
+    container.innerHTML = insights.map(i => `
+      <div class="insight-card">
+        <div class="insight-icon">${i.icon}</div>
+        <div class="insight-body">
+          <h4>${i.title}</h4>
+          <p>${i.text}</p>
+          <span class="insight-tag ${i.tag}">${i.tagText}</span>
+        </div>
+      </div>
+    `).join('');
+  },
+
+  // === Helpers ===
   _correlatePCsWithHH(projected, physics) {
     const hhVars = ['V', 'm', 'h', 'n'];
-    const nPCs = projected[0].length;
     const N = projected.length;
 
     function pearson(a, b) {
-      let sumA = 0, sumB = 0, sumAB = 0, sumA2 = 0, sumB2 = 0;
+      let sA = 0, sB = 0, sAB = 0, sA2 = 0, sB2 = 0;
       for (let i = 0; i < N; i++) {
-        sumA += a[i]; sumB += b[i];
-        sumAB += a[i] * b[i];
-        sumA2 += a[i] * a[i]; sumB2 += b[i] * b[i];
+        sA += a[i]; sB += b[i]; sAB += a[i] * b[i];
+        sA2 += a[i] * a[i]; sB2 += b[i] * b[i];
       }
-      const num = N * sumAB - sumA * sumB;
-      const den = Math.sqrt((N * sumA2 - sumA * sumA) * (N * sumB2 - sumB * sumB));
+      const num = N * sAB - sA * sB;
+      const den = Math.sqrt((N * sA2 - sA * sA) * (N * sB2 - sB * sB));
       return den < 1e-10 ? 0 : num / den;
     }
 
-    const corr = [];
-    for (let pc = 0; pc < Math.min(nPCs, 10); pc++) {
-      const pcValues = projected.map(row => row[pc]);
+    return projected[0].map((_, pc) => {
+      const vals = projected.map(row => row[pc]);
       const row = {};
-      for (const hh of hhVars) {
-        row[hh] = pearson(pcValues, physics[hh]);
-      }
-      corr.push(row);
-    }
-    return corr;
+      for (const hh of hhVars) row[hh] = pearson(vals, physics[hh]);
+      return row;
+    }).slice(0, 10);
   },
 
   _updateStatus(msg) {
@@ -304,5 +441,4 @@ const App = {
   }
 };
 
-// Boot
 window.addEventListener('DOMContentLoaded', () => App.init());
