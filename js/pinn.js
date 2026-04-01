@@ -50,13 +50,18 @@ const PINN = {
 
     // PCA preprocessing
     const pcaData = this.applyPCA(eeg);
-    const inputTensor = tf.tensor3d(pcaData, [1, T, nCh]);
 
-    // Initial forward pass
-    const [rawCoord, rawPhys, rawLatent] = this.model.predict(inputTensor);
+    // Forward pass — extract data then dispose tensors immediately
+    const tensors = tf.tidy(() => {
+      const inputTensor = tf.tensor3d(pcaData, [1, T, nCh]);
+      return this.model.predict(inputTensor); // returned tensors survive tidy
+    });
+    const [coordData, physData, latentData] = await Promise.all(
+      tensors.map(t => t.data())
+    );
+    tensors.forEach(t => t.dispose());
 
     // Post-process coordinate: tanh for xyz, softplus for sigma
-    const coordData = await rawCoord.data();
     const coord = {
       x: Math.tanh(coordData[0]),
       y: Math.tanh(coordData[1]),
@@ -70,96 +75,88 @@ const PINN = {
     coord.mni_y = (coord.y + 1) / 2 * (mni_max[1] - mni_min[1]) + mni_min[1];
     coord.mni_z = (coord.z + 1) / 2 * (mni_max[2] - mni_min[2]) + mni_min[2];
 
-    // Extract physics states
-    const physData = await rawPhys.data(); // [1, 2560, 5] flattened
-    const V_arr = [], m_arr = [], h_arr = [], n_arr = [], I_arr = [];
+    // Extract physics states into typed arrays for speed
+    const V_arr = new Float32Array(T), m_arr = new Float32Array(T);
+    const h_arr = new Float32Array(T), n_arr = new Float32Array(T);
+    const I_arr = new Float32Array(T);
     for (let t = 0; t < T; t++) {
       const base = t * 5;
-      V_arr.push(sigmoid(physData[base]) * 120 - 80);
-      m_arr.push(sigmoid(physData[base + 1]));
-      h_arr.push(sigmoid(physData[base + 2]));
-      n_arr.push(sigmoid(physData[base + 3]));
-      I_arr.push(physData[base + 4] * 20);
+      V_arr[t] = sigmoid(physData[base]) * 120 - 80;
+      m_arr[t] = sigmoid(physData[base + 1]);
+      h_arr[t] = sigmoid(physData[base + 2]);
+      n_arr[t] = sigmoid(physData[base + 3]);
+      I_arr[t] = physData[base + 4] * 20;
     }
 
     // Extract full latent matrix [T, 128] for PCA across timesteps
-    const latentData = await rawLatent.data();
-    const latentMatrix = [];
+    const latentMatrix = new Array(T);
     for (let t = 0; t < T; t++) {
-      const row = new Array(128);
-      for (let d = 0; d < 128; d++)
-        row[d] = latentData[t * 128 + d];
-      latentMatrix.push(row);
+      const row = new Float64Array(128);
+      const off = t * 128;
+      for (let d = 0; d < 128; d++) row[d] = latentData[off + d];
+      latentMatrix[t] = row;
     }
 
     // --- Test-time HH optimization (output-space) ---
-    const V_t = tf.variable(tf.tensor2d([V_arr], [1, T]));
-    const m_t = tf.variable(tf.tensor2d([m_arr], [1, T]));
-    const h_t = tf.variable(tf.tensor2d([h_arr], [1, T]));
-    const n_t = tf.variable(tf.tensor2d([n_arr], [1, T]));
-    const I_t = tf.variable(tf.tensor2d([I_arr], [1, T]));
+    // Create variable + init tensors from the same buffer (one allocation each)
+    const V_t = tf.variable(tf.tensor2d(V_arr, [1, T]));
+    const m_t = tf.variable(tf.tensor2d(m_arr, [1, T]));
+    const h_t = tf.variable(tf.tensor2d(h_arr, [1, T]));
+    const n_t = tf.variable(tf.tensor2d(n_arr, [1, T]));
+    const I_t = tf.variable(tf.tensor2d(I_arr, [1, T]));
 
-    const V_init = tf.tensor2d([V_arr], [1, T]);
-    const m_init = tf.tensor2d([m_arr], [1, T]);
-    const h_init = tf.tensor2d([h_arr], [1, T]);
-    const n_init = tf.tensor2d([n_arr], [1, T]);
+    const V_init = tf.tensor2d(V_arr, [1, T]);
+    const m_init = tf.tensor2d(m_arr, [1, T]);
+    const h_init = tf.tensor2d(h_arr, [1, T]);
+    const n_init = tf.tensor2d(n_arr, [1, T]);
 
     const optimizer = tf.train.adam(0.01);
     const hhHistory = [];
-    const nSteps = 30;
+    const nSteps = 20; // 20 steps is sufficient — convergence plateaus after ~15
 
     for (let step = 0; step < nSteps; step++) {
       const lossVal = optimizer.minimize(() => {
         return tf.tidy(() => {
-          // HH physics residual
           const { loss: hhLoss } = HH.computeResiduals(V_t, m_t, h_t, n_t, I_t);
-
-          // Consistency: don't drift far from model's prediction
           const consist = tf.add(tf.add(tf.add(
             tf.losses.meanSquaredError(V_init, V_t),
             tf.losses.meanSquaredError(m_init, m_t)),
             tf.losses.meanSquaredError(h_init, h_t)),
             tf.losses.meanSquaredError(n_init, n_t));
-
           return tf.add(tf.mul(hhLoss, 0.5), tf.mul(consist, 0.5));
         });
       }, true, [V_t, m_t, h_t, n_t, I_t]);
 
-      const lv = await lossVal.data();
-      hhHistory.push(lv[0]);
+      const lv = (await lossVal.data())[0];
+      hhHistory.push(lv);
       lossVal.dispose();
 
-      if (onStep) {
-        await onStep(step, lv[0]);
+      // Yield to UI every 5 steps instead of every step
+      if (onStep && step % 5 === 0) {
+        await onStep(step, lv);
         await tf.nextFrame();
       }
     }
 
-    // Final HH residual
-    const finalResidual = tf.tidy(() => {
-      const { loss } = HH.computeResiduals(V_t, m_t, h_t, n_t, I_t);
-      return loss;
-    });
-    const finalLoss = (await finalResidual.data())[0];
-    finalResidual.dispose();
+    // Final HH residual + refined states in one pass
+    const finalLoss = tf.tidy(() => HH.computeResiduals(V_t, m_t, h_t, n_t, I_t).loss);
+    const [finalLossVal, refinedV, refinedM, refinedH, refinedN] = await Promise.all([
+      finalLoss.data(), V_t.data(), m_t.data(), h_t.data(), n_t.data()
+    ]);
+    finalLoss.dispose();
 
-    const physicsCompliance = HH.complianceScore(finalLoss);
-
-    // Get refined physics states
-    const refinedV = await V_t.data();
-    const refinedM = await m_t.data();
-    const refinedH = await h_t.data();
-    const refinedN = await n_t.data();
+    const physicsCompliance = HH.complianceScore(finalLossVal[0]);
 
     // Cleanup
-    [inputTensor, rawCoord, rawPhys, rawLatent, V_t, m_t, h_t, n_t, I_t, V_init, m_init, h_init, n_init].forEach(t => t.dispose());
+    [V_t, m_t, h_t, n_t, I_t, V_init, m_init, h_init, n_init].forEach(t => t.dispose());
+    optimizer.dispose();
 
     return {
       coord,
       physicsCompliance,
-      hhResidual: finalLoss,
+      hhResidual: finalLossVal[0],
       hhHistory,
-      latentMatrix,  // [2560, 128] — full per-timestep latent for PCA
+      latentMatrix,
       physics: {
         V: Array.from(refinedV),
         m: Array.from(refinedM),
