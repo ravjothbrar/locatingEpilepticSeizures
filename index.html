@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seizure Origin Detection — Physics-Informed Neural Network</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <h1>Seizure Origin Detection <span>— Physics-Informed Neural Network</span></h1>
+    <div class="header-controls">
+      <label class="file-label">
+        Upload EEG (.csv)
+        <input type="file" id="file-input" accept=".csv,.edf">
+      </label>
+      <button id="btn-demo">Use Demo Data</button>
+      <button id="btn-run" class="primary" disabled>Run Analysis</button>
+      <button id="btn-hands" style="display:none" title="Toggle hand tracking">Hands</button>
+      <span id="status">Initializing...</span>
+    </div>
+  </header>
+
+  <!-- Main Layout -->
+  <div class="main">
+
+    <!-- Left: 3D Brain -->
+    <div class="brain-panel">
+      <div id="brain-container"></div>
+      <canvas id="hand-preview" width="160" height="120"></canvas>
+
+      <!-- Progress overlay -->
+      <div class="progress-container" id="progress">
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progress-bar"></div>
+        </div>
+        <div class="progress-text" id="progress-text">Initializing...</div>
+      </div>
+    </div>
+
+    <!-- Right: Tabbed Panel -->
+    <div class="side-panel">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="results">Results</button>
+        <button class="tab-btn" data-tab="interpret">Interpretability</button>
+        <button class="tab-btn" data-tab="physics">Physics</button>
+        <button class="tab-btn" data-tab="eeg">EEG Data</button>
+      </div>
+
+      <div class="tab-content">
+        <!-- Results Tab -->
+        <div class="tab-panel active" id="tab-results">
+          <div id="results-content">
+            <div class="empty-state">
+              <h3>No analysis yet</h3>
+              <p>Upload EEG data or click "Use Demo Data" to generate<br>
+              synthetic seizure data, then click "Run Analysis".</p>
+              <p style="margin-top:12px; font-size:12px; color:#666">
+                The PINN predicts the 3D coordinates of the<br>
+                epileptogenic zone using Hodgkin-Huxley physics constraints.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interpretability Tab -->
+        <div class="tab-panel" id="tab-interpret">
+          <div class="result-card">
+            <h3>PCA — Latent Space Decomposition</h3>
+            <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px">
+              Principal components of the model's internal representation,
+              showing which dimensions drive the prediction.
+            </p>
+            <div id="chart-pca"></div>
+          </div>
+        </div>
+
+        <!-- Physics Tab -->
+        <div class="tab-panel" id="tab-physics">
+          <div class="result-card">
+            <h3>HH Optimization Convergence</h3>
+            <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px">
+              Physics residual during test-time optimization.
+              Lower = better compliance with Hodgkin-Huxley equations.
+            </p>
+            <div id="chart-convergence"></div>
+          </div>
+          <div class="result-card">
+            <h3>Hodgkin-Huxley State Variables</h3>
+            <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px">
+              Membrane voltage (V) and gating variables (m, h, n)
+              predicted by the physics head, refined by HH constraints.
+            </p>
+            <div id="chart-physics"></div>
+          </div>
+        </div>
+
+        <!-- EEG Tab -->
+        <div class="tab-panel" id="tab-eeg">
+          <div class="result-card">
+            <h3>Raw EEG Channels</h3>
+            <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px">
+              18-channel scalp EEG (10-20 bipolar montage).
+              Red dashed line indicates detected seizure onset.
+            </p>
+            <div id="chart-eeg"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        For research purposes only — not a medical device.
+        Built with <a href="https://www.tensorflow.org/js" target="_blank">TensorFlow.js</a>,
+        <a href="https://threejs.org" target="_blank">Three.js</a>, and
+        Hodgkin-Huxley PDE constraints.
+      </div>
+    </div>
+  </div>
+
+  <!-- Tooltip -->
+  <div id="tooltip"></div>
+
+  <!-- Dependencies (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@5.18.0/plotly.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.min.js"></script>
+
+  <!-- Application -->
+  <script src="js/hodgkin-huxley.js"></script>
+  <script src="js/pca.js"></script>
+  <script src="js/pinn.js"></script>
+  <script src="js/brain3d.js"></script>
+  <script src="js/visualize.js"></script>
+  <script src="js/hands.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
