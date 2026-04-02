@@ -31,12 +31,14 @@ const Brain3D = {
     this.controls.maxDistance = 8;
     this.controls.minDistance = 2;
 
-    this.scene.add(new THREE.AmbientLight(0x404060, 0.7));
-    const dir1 = new THREE.DirectionalLight(0xffffff, 0.9);
-    dir1.position.set(5, 5, 5);
-    const dir2 = new THREE.DirectionalLight(0x8b5cf6, 0.3);
+    this.scene.add(new THREE.AmbientLight(0x404060, 0.5));
+    const dir1 = new THREE.DirectionalLight(0xfff5ee, 1.0);
+    dir1.position.set(5, 6, 5);
+    const dir2 = new THREE.DirectionalLight(0x8b5cf6, 0.35);
     dir2.position.set(-5, -3, -5);
-    this.scene.add(dir1, dir2);
+    const dir3 = new THREE.DirectionalLight(0xffe0e0, 0.25);
+    dir3.position.set(-3, 4, 2);
+    this.scene.add(dir1, dir2, dir3);
 
     this._createBrain();
 
@@ -61,51 +63,119 @@ const Brain3D = {
   },
 
   _createBrain() {
-    const geo = new THREE.SphereGeometry(1, 56, 40);
+    const geo = new THREE.SphereGeometry(1, 80, 60);
     const pos = geo.attributes.position;
+    const colors = new Float32Array(pos.count * 3);
+
+    // Seeded noise function for reproducible brain folds
+    const hash = (x, y, z) => {
+      let h = x * 374761393 + y * 668265263 + z * 1274126177;
+      h = Math.sin(h) * 43758.5453;
+      return h - Math.floor(h);
+    };
 
     for (let i = 0; i < pos.count; i++) {
       let x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
 
-      y *= 1.25;
-      z *= 0.88;
-      x *= 1.05;
+      // Brain proportions: elongated front-back, wider at sides, flatter top-bottom
+      y *= 1.3;   // elongate anterior-posterior
+      z *= 0.85;  // flatten superior-inferior
+      x *= 1.08;  // slight lateral width
 
-      const fissureDepth = Math.exp(-x * x * 30) * 0.18;
-      z -= fissureDepth * Math.max(0, z);
+      // Interhemispheric fissure — deep midline split
+      const fissureWidth = 0.06;
+      const fissureDepth = 0.25 * Math.exp(-x * x / (2 * fissureWidth * fissureWidth));
+      const topFactor = Math.max(0, z * 1.5); // deeper on top surface
+      z -= fissureDepth * topFactor;
 
-      if (z < -0.3) z = -0.3 + (z + 0.3) * 0.3;
+      // Flatten the base (inferior surface)
+      if (z < -0.25) z = -0.25 + (z + 0.25) * 0.25;
 
-      const freq1 = Math.sin(x * 12.3 + y * 7.1) * Math.cos(z * 9.7 + x * 5.3);
-      const freq2 = Math.sin(y * 15.7 + z * 11.3) * Math.cos(x * 8.9);
-      const noise = (freq1 * 0.6 + freq2 * 0.4) * 0.025;
+      // Frontal narrowing
+      const frontFactor = Math.max(0, y - 0.4) * 0.3;
+      x *= (1 - frontFactor * 0.15);
 
+      // Occipital rounding (slight protrusion at back)
+      if (y < -0.6) {
+        const backPush = (y + 0.6) * 0.08;
+        y += backPush;
+      }
+
+      // Temporal lobe bulges (lower lateral)
+      const temporalAngle = Math.atan2(z, Math.abs(x));
+      if (temporalAngle < -0.3 && Math.abs(x) > 0.3) {
+        const bulge = 0.06 * Math.exp(-((temporalAngle + 0.8) * (temporalAngle + 0.8)) * 4);
+        const r = Math.sqrt(x * x + z * z) || 1;
+        x += (x / r) * bulge;
+        z += (z / r) * bulge;
+      }
+
+      // Major sulci (deep grooves) — using sine waves at brain-scale frequencies
       const r = Math.sqrt(x * x + y * y + z * z) || 1;
-      x += (x / r) * noise;
-      y += (y / r) * noise;
-      z += (z / r) * noise;
+      const theta = Math.atan2(x, y); // azimuthal
+      const phi = Math.acos(z / r);   // polar
+
+      // Central sulcus (Rolandic fissure) — runs roughly coronal
+      const centralSulcus = Math.exp(-((y - 0.05) * (y - 0.05)) * 60) *
+                            Math.max(0, z) * 0.04 * Math.cos(x * 3);
+
+      // Lateral (Sylvian) fissure — horizontal on sides
+      const sylvian = Math.exp(-((z + 0.05) * (z + 0.05)) * 40) *
+                      Math.max(0, Math.abs(x) - 0.3) * 0.04 *
+                      Math.exp(-((y - 0.1) * (y - 0.1)) * 3);
+
+      // Gyri folds — multi-frequency procedural displacement
+      const g1 = Math.sin(theta * 8 + phi * 6) * 0.018;
+      const g2 = Math.sin(theta * 14 + phi * 10 + 1.3) * 0.012;
+      const g3 = Math.sin(theta * 22 + phi * 18 + 2.7) * 0.006;
+      const g4 = Math.sin(x * 18 + y * 12 + z * 15) * 0.008;
+      const g5 = Math.cos(x * 25 + y * 20 - z * 10 + 0.5) * 0.005;
+      const gyri = g1 + g2 + g3 + g4 + g5;
+
+      // Apply sulci (inward) and gyri (in/out along normal)
+      const sulcusTotal = centralSulcus + sylvian;
+      x += (x / r) * (gyri - sulcusTotal);
+      y += (y / r) * (gyri - sulcusTotal);
+      z += (z / r) * (gyri - sulcusTotal);
 
       pos.setXYZ(i, x, y, z);
+
+      // Vertex colors: pinkish-purple cortex with subtle variation in sulci
+      const depth = gyri - sulcusTotal; // negative = sulcus
+      const sulcusDarkness = Math.max(0, -depth * 12);
+      const baseR = 0.82 - sulcusDarkness * 0.2;
+      const baseG = 0.68 - sulcusDarkness * 0.25;
+      const baseB = 0.78 - sulcusDarkness * 0.15;
+      // Slight hue variation across cortex
+      const hueShift = Math.sin(theta * 3 + phi * 2) * 0.04;
+      colors[i * 3] = Math.max(0.4, Math.min(1, baseR + hueShift));
+      colors[i * 3 + 1] = Math.max(0.3, Math.min(1, baseG - hueShift * 0.5));
+      colors[i * 3 + 2] = Math.max(0.4, Math.min(1, baseB + hueShift * 0.3));
     }
 
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geo.computeVertexNormals();
 
+    // Solid cortex material with vertex colors for realistic shading
     const mat = new THREE.MeshPhysicalMaterial({
-      color: 0xccaaee,
+      vertexColors: true,
       transparent: true,
-      opacity: 0.32,
-      roughness: 0.7,
-      metalness: 0.1,
+      opacity: 0.88,
+      roughness: 0.85,
+      metalness: 0.02,
       side: THREE.DoubleSide,
-      depthWrite: false,
+      depthWrite: true,
+      clearcoat: 0.1,
+      clearcoatRoughness: 0.8,
     });
 
     this.brainMesh = new THREE.Mesh(geo, mat);
     this.scene.add(this.brainMesh);
 
+    // Subtle purple wireframe overlay for the tech aesthetic
     const wire = new THREE.LineSegments(
       new THREE.WireframeGeometry(geo),
-      new THREE.LineBasicMaterial({ color: 0x8b5cf6, transparent: true, opacity: 0.05 })
+      new THREE.LineBasicMaterial({ color: 0x8b5cf6, transparent: true, opacity: 0.03 })
     );
     this.scene.add(wire);
   },

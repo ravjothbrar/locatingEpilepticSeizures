@@ -9,12 +9,11 @@ const HH = {
   E_Na: 50, E_K: -77, E_L: -54.4,
   C_m: 1.0,
 
-  /** Safe x/(1-exp(-x)) with L'Hôpital at x≈0 */
+  /** Safe x/(1-exp(-x)) — fully differentiable (no tf.where/greater) */
   _s(x) {
     return tf.tidy(() => {
-      const ok = tf.abs(x).greater(1e-4);
-      const xSafe = tf.where(ok, x, tf.onesLike(x));
-      return tf.where(ok, tf.div(x, tf.sub(1, tf.exp(tf.neg(xSafe)))), tf.onesLike(x));
+      const eps = 1e-7;
+      return tf.div(tf.add(x, eps), tf.add(tf.sub(1, tf.exp(tf.neg(x))), eps));
     });
   },
 
