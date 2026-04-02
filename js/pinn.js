@@ -8,23 +8,16 @@ const PINN = {
   metadata: null,
 
   async load(onProgress) {
+    const progressFn = onProgress || (() => {});
+
+    // Load model weights and metadata in parallel
     const [model, resp] = await Promise.all([
-      tf.loadLayersModel('model/model.json', {
-        onProgress: onProgress || (() => {})
-      }),
+      tf.loadLayersModel('model/model.json', { onProgress: progressFn }),
       fetch('model/metadata.json')
     ]);
     this.model = model;
     this.metadata = await resp.json();
-
-    // Warm up the model with a dummy forward pass to compile WebGL shaders now
-    // (prevents the first real inference from being slow)
-    tf.tidy(() => {
-      const dummy = tf.zeros([1, 2560, 18]);
-      this.model.predict(dummy);
-    });
-
-    console.log('PINN loaded + warmed up');
+    console.log('PINN loaded, backend:', tf.getBackend());
     return this;
   },
 
