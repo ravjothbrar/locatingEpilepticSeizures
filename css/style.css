@@ -54,13 +54,13 @@ body {
 .welcome-card {
   background: var(--surface);
   border: 1px solid rgba(139, 92, 246, 0.3);
-  border-radius: 16px;
-  padding: 40px 44px;
-  max-width: 480px;
-  width: 90%;
+  border-radius: 20px;
+  padding: 56px 60px;
+  max-width: 780px;
+  width: 92%;
   text-align: center;
   animation: slideUp 0.5s ease;
-  box-shadow: 0 0 60px rgba(139, 92, 246, 0.15), 0 20px 60px rgba(0,0,0,0.4);
+  box-shadow: 0 0 80px rgba(139, 92, 246, 0.18), 0 24px 80px rgba(0,0,0,0.5);
   position: relative;
   overflow: hidden;
 }
@@ -88,9 +88,9 @@ body {
 }
 
 .welcome-card h2 {
-  font-size: 22px;
+  font-size: 36px;
   font-weight: 700;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
   background: var(--gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -98,35 +98,35 @@ body {
 }
 
 .welcome-card p {
-  font-size: 13px;
+  font-size: 17px;
   line-height: 1.7;
   color: var(--text-dim);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .welcome-card .welcome-hint {
-  font-size: 11px;
+  font-size: 14px;
   color: var(--accent);
   opacity: 0.6;
-  margin-top: 20px;
+  margin-top: 24px;
 }
 
 .welcome-features {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin: 18px 0;
+  gap: 14px;
+  margin: 28px 0;
   text-align: left;
 }
 
 .welcome-feature {
   background: var(--gradient-subtle);
   border: 1px solid rgba(139,92,246,0.15);
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-size: 12px;
+  border-radius: 12px;
+  padding: 18px 20px;
+  font-size: 15px;
   color: var(--text-dim);
-  line-height: 1.4;
+  line-height: 1.5;
   transition: border-color 0.2s;
 }
 
@@ -137,8 +137,8 @@ body {
 .welcome-feature strong {
   color: var(--text);
   display: block;
-  margin-bottom: 2px;
-  font-size: 11px;
+  margin-bottom: 4px;
+  font-size: 16px;
 }
 
 /* === Header === */
