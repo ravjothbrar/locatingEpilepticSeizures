@@ -2,23 +2,52 @@ const App = {
   eegData: null,
   metadata: null,
   isRunning: false,
+  modelReady: false,
   lastPCAResult: null,
   lastCorrelations: null,
 
   async init() {
-    this._updateStatus('Loading PINN model...');
-    await PINN.load();
-    this.metadata = PINN.metadata;
-
-    Brain3D.init('brain-container');
-    Brain3D.setElectrodes(this.metadata.mni_coords, this.metadata.channels);
-
-    this._updateStatus('Ready');
+    // 1. Bind ALL UI immediately so everything is interactive
     this._bindUI();
 
+    // 2. Start 3D brain spinning right away (no electrodes yet)
+    Brain3D.init('brain-container');
+
+    // 3. Load model in background with progress
+    this._showLoadingBar(true);
+    this._updateStatus('Loading model...');
+
+    try {
+      await PINN.load((progress) => this._updateLoadingBar(progress));
+      this.metadata = PINN.metadata;
+      this.modelReady = true;
+
+      // Now add electrodes to the already-spinning brain
+      Brain3D.setElectrodes(this.metadata.mni_coords, this.metadata.channels);
+
+      this._updateStatus('Ready');
+    } catch (err) {
+      this._updateStatus('Model load failed: ' + err.message);
+    }
+
+    this._showLoadingBar(false);
+
+    // Non-blocking hand tracking
     HandTracker.init().then(ok => {
       if (ok) document.getElementById('btn-hands').style.display = 'inline-flex';
     });
+  },
+
+  _showLoadingBar(show) {
+    const bar = document.getElementById('model-loading');
+    if (bar) bar.style.display = show ? 'flex' : 'none';
+  },
+
+  _updateLoadingBar(fraction) {
+    const fill = document.getElementById('model-loading-fill');
+    const text = document.getElementById('model-loading-text');
+    if (fill) fill.style.width = (fraction * 100).toFixed(0) + '%';
+    if (text) text.textContent = (fraction * 100).toFixed(0) + '%';
   },
 
   _bindUI() {
@@ -261,6 +290,10 @@ const App = {
   // === Inference ===
   async _runInference() {
     if (this.isRunning || !this.eegData) return;
+    if (!this.modelReady) {
+      this._updateStatus('Model still loading — please wait');
+      return;
+    }
     this.isRunning = true;
 
     const runBtn = document.getElementById('btn-run');

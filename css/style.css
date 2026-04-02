@@ -236,9 +236,39 @@ button.active { background: var(--green); color: #000; border-color: var(--green
 #status {
   font-size: 11px;
   color: var(--text-dim);
-  max-width: 360px;
+  max-width: 300px;
   text-align: right;
   font-family: 'JetBrains Mono', monospace;
+}
+
+/* === Model Loading Bar === */
+.model-loading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.model-loading-track {
+  width: 80px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.model-loading-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--gradient);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.model-loading-text {
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--accent-bright);
+  min-width: 28px;
 }
 
 /* === Demo Dropdown === */
@@ -349,8 +379,13 @@ button.active { background: var(--green); color: #000; border-color: var(--green
   letter-spacing: 0.5px;
 }
 
-.tab-btn:hover { color: var(--text); background: transparent; }
-.tab-btn.active { color: var(--accent-bright); border-bottom-color: var(--accent); }
+.tab-btn:hover { color: var(--text); background: rgba(139,92,246,0.06); }
+.tab-btn.active {
+  color: var(--text);
+  background: rgba(139,92,246,0.06);
+  border-bottom-color: transparent;
+  font-weight: 600;
+}
 
 .tab-content {
   flex: 1;
