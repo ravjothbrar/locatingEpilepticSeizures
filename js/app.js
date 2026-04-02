@@ -11,23 +11,36 @@ const App = {
     this._bindUI();
 
     // 2. Start 3D brain spinning right away (no electrodes yet)
-    Brain3D.init('brain-container');
+    try {
+      Brain3D.init('brain-container');
+    } catch (err) {
+      console.error('Brain3D init failed:', err);
+    }
 
     // 3. Load model in background with progress
     this._showLoadingBar(true);
     this._updateStatus('Loading model...');
 
     try {
-      await PINN.load((progress) => this._updateLoadingBar(progress));
+      await PINN.load((progress) => {
+        this._updateLoadingBar(progress);
+        this._updateStatus(`Loading model... ${(progress * 100).toFixed(0)}%`);
+      });
       this.metadata = PINN.metadata;
       this.modelReady = true;
 
       // Now add electrodes to the already-spinning brain
       Brain3D.setElectrodes(this.metadata.mni_coords, this.metadata.channels);
 
-      this._updateStatus('Ready');
+      this._updateStatus('Ready — choose a patient or upload EEG');
+
+      // If user already loaded data while model was loading, enable Run
+      if (this.eegData) {
+        document.getElementById('btn-run').disabled = false;
+      }
     } catch (err) {
-      this._updateStatus('Model load failed: ' + err.message);
+      console.error('Model load failed:', err);
+      this._updateStatus('Load failed — try refreshing');
     }
 
     this._showLoadingBar(false);
@@ -239,12 +252,16 @@ const App = {
     return eeg;
   },
 
+  _channels: ['FP1-F7','F7-T7','T7-P7','P7-O1','FP1-F3','F3-C3','C3-P3','P3-O1',
+               'FP2-F4','F4-C4','C4-P4','P4-O2','FP2-F8','F8-T8','T8-P8','P8-O2','FZ-CZ','CZ-PZ'],
+  _fs: 256,
+
   _loadDemo(patientIdx) {
     const patient = this._patients[patientIdx];
     this.eegData = this._generateSyntheticEEG(patient);
-    this._updateStatus(`${patient.title} loaded`);
-    document.getElementById('btn-run').disabled = false;
-    Viz.renderEEG(this.eegData, this.metadata.channels, this.metadata.fs, patient.onset, 'chart-eeg');
+    this._updateStatus(this.modelReady ? `${patient.title} loaded` : `${patient.title} loaded (model still loading...)`);
+    document.getElementById('btn-run').disabled = !this.modelReady;
+    Viz.renderEEG(this.eegData, this._channels, this._fs, patient.onset, 'chart-eeg');
     document.querySelector('[data-tab="eeg"]').click();
     document.getElementById('demo-menu').style.display = 'none';
     setTimeout(() => document.getElementById('demo-menu').style.display = '', 200);
