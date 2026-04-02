@@ -136,22 +136,24 @@ const App = {
 
   // === ASCII Art ===
   _initASCII() {
-    const art = document.getElementById('ascii-art');
-    if (!art) return;
-
     const brain = [
-      '          ___---^^^---___          ',
-      '       _--~   /    \\   ~--_       ',
-      '     _-  __  / PINN  \\  __  -_    ',
-      '    / ,-~  ~-\\  HH  /-~  ~-. \\   ',
-      '   | /  V m   \\    /  h n   \\ |   ',
-      '   |/ dV/dt    \\  /  dm/dt   \\|   ',
-      '   \\  Na+ K+   ----  gating   /   ',
-      '    \\_  ion channels  EZ    _/    ',
-      '      ~--___     ___--~          ',
-      '            ~~~~~                ',
+      '     ___---^^^---___     ',
+      '  _--~  /    \\  ~--_   ',
+      ' / __  / PINN \\  __ \\  ',
+      '| / ~-\\  HH  /-~ \\ | ',
+      '|/ V m  \\    / h n  \\| ',
+      '\\  Na+   ----  K+   / ',
+      ' \\_  ion ch.  EZ  _/  ',
+      '   ~--___   ___--~    ',
+      '         ~~~          ',
     ];
-    art.textContent = brain.join('\n');
+    const text = brain.join('\n');
+
+    const popup = document.getElementById('ascii-art');
+    if (popup) popup.textContent = text;
+
+    const header = document.getElementById('header-ascii-art');
+    if (header) header.textContent = text;
   },
 
   // === Sample Patient Datasets ===
@@ -293,9 +295,9 @@ const App = {
           for (let t = 0; t < 2560; t++) this.eegData[t][ch] = (this.eegData[t][ch] - mu) / sig;
         }
 
-        this._updateStatus('File loaded — click Run Analysis');
-        document.getElementById('btn-run').disabled = false;
-        Viz.renderEEG(this.eegData, this.metadata.channels, this.metadata.fs, null, 'chart-eeg');
+        this._updateStatus(this.modelReady ? 'File loaded — click Run Analysis' : 'File loaded (model still loading...)');
+        document.getElementById('btn-run').disabled = !this.modelReady;
+        Viz.renderEEG(this.eegData, this._channels, this._fs, null, 'chart-eeg');
         document.querySelector('[data-tab="eeg"]').click();
       } catch (err) {
         this._updateStatus('Parse error: ' + err.message);
@@ -338,32 +340,7 @@ const App = {
       Brain3D.showEZ(result.coord, this.metadata);
       this._renderResults(result);
 
-      Viz.renderConvergence(result.hhHistory, 'chart-convergence');
-      Viz.renderPhysicsStates(result.physics, this.metadata.fs, 'chart-physics');
-
-      requestAnimationFrame(() => {
-        if (result.latentMatrix && result.latentMatrix.length > 1) {
-          const step = 10;
-          const subLatent = result.latentMatrix.filter((_, i) => i % step === 0);
-          const pcaResult = PCAModule.fitTransform(subLatent, 10);
-          this.lastPCAResult = pcaResult;
-
-          const subPhysics = {
-            V: result.physics.V.filter((_, i) => i % step === 0),
-            m: result.physics.m.filter((_, i) => i % step === 0),
-            h: result.physics.h.filter((_, i) => i % step === 0),
-            n: result.physics.n.filter((_, i) => i % step === 0),
-          };
-
-          const correlations = this._correlatePCsWithHH(pcaResult.projected, subPhysics);
-          this.lastCorrelations = correlations;
-
-          Viz.renderPCAScree(pcaResult.explainedVariance, 'chart-pca');
-          Viz.renderPCATimecourse(pcaResult.projected, this.metadata.fs, step, 'chart-pca-time');
-          Viz.renderPCAHHCorrelation(correlations, 'chart-pca-corr');
-          this._renderPCAInsights(pcaResult, correlations);
-        }
-      });
+      Viz.renderEEG(this.eegData, this._channels, this._fs, null, 'chart-eeg');
 
       this._updateStatus('Analysis complete');
     } catch (err) {
@@ -427,110 +404,6 @@ const App = {
     setTimeout(() => {
       Viz.renderRankedRegions(result.coord, this.metadata, 'chart-ranked');
     }, 50);
-  },
-
-  _renderPCAInsights(pcaResult, correlations) {
-    const container = document.getElementById('pca-insights');
-    const insights = [];
-    const ev = pcaResult.explainedVariance;
-
-    const cumul90 = ev.findIndex((_, i) => ev.slice(0, i + 1).reduce((a, b) => a + b, 0) >= 0.9) + 1;
-    if (cumul90 > 0 && cumul90 <= 5) {
-      insights.push({
-        icon: '&#9889;', title: `Low-dimensional (${cumul90} PCs for 90%)`,
-        text: `Only ${cumul90} principal components explain 90% of variance — the model found a compact encoding.`,
-        tag: 'good', tagText: 'Interpretable'
-      });
-    } else if (cumul90 > 5) {
-      insights.push({
-        icon: '&#128200;', title: `${cumul90} PCs for 90% variance`,
-        text: `Moderately complex latent space, reflecting the complexity of this seizure's dynamics.`,
-        tag: 'neutral', tagText: 'Complex'
-      });
-    }
-
-    if (ev[0] > 0.3) {
-      insights.push({
-        icon: '&#127919;', title: `PC1 dominates (${(ev[0] * 100).toFixed(1)}%)`,
-        text: `A single dimension captures ${(ev[0] * 100).toFixed(1)}% of variance — likely the seizure/baseline distinction.`,
-        tag: 'good', tagText: 'Clear signal'
-      });
-    }
-
-    const hhNames = { V: 'membrane voltage', m: 'Na+ activation', h: 'Na+ inactivation', n: 'K+ activation' };
-    const hhVars = ['V', 'm', 'h', 'n'];
-    let best = { pc: 0, hh: 'V', r: 0 };
-
-    correlations.forEach((row, pc) => {
-      hhVars.forEach(hh => {
-        if (Math.abs(row[hh]) > Math.abs(best.r)) best = { pc, hh, r: row[hh] };
-      });
-    });
-
-    if (Math.abs(best.r) > 0.5) {
-      insights.push({
-        icon: '&#129516;', title: `PC${best.pc + 1} tracks ${hhNames[best.hh]} (r=${best.r.toFixed(2)})`,
-        text: `The model's learned features align with HH physics — evidence of physics-informed learning.`,
-        tag: 'good', tagText: 'Physics-aligned'
-      });
-    } else if (Math.abs(best.r) > 0.2) {
-      insights.push({
-        icon: '&#128268;', title: `Moderate HH alignment (r=${best.r.toFixed(2)})`,
-        text: `Partial alignment with HH variables. The model encodes both physics and statistical patterns.`,
-        tag: 'neutral', tagText: 'Partial alignment'
-      });
-    } else {
-      insights.push({
-        icon: '&#128300;', title: 'Weak HH correlation',
-        text: `Features don't strongly align with individual HH variables — may encode higher-order combinations.`,
-        tag: 'warn', tagText: 'Investigate'
-      });
-    }
-
-    const strongPCs = correlations.filter(row =>
-      hhVars.some(hh => Math.abs(row[hh]) > 0.4)
-    ).length;
-    if (strongPCs >= 3) {
-      insights.push({
-        icon: '&#129504;', title: `${strongPCs} PCs encode distinct HH dynamics`,
-        text: `Multiple PCs each align with different HH variables — the model disentangled ion channel dynamics.`,
-        tag: 'good', tagText: 'Disentangled'
-      });
-    }
-
-    container.innerHTML = insights.map(i => `
-      <div class="insight-card">
-        <div class="insight-icon">${i.icon}</div>
-        <div class="insight-body">
-          <h4>${i.title}</h4>
-          <p>${i.text}</p>
-          <span class="insight-tag ${i.tag}">${i.tagText}</span>
-        </div>
-      </div>
-    `).join('');
-  },
-
-  _correlatePCsWithHH(projected, physics) {
-    const hhVars = ['V', 'm', 'h', 'n'];
-    const N = projected.length;
-
-    function pearson(a, b) {
-      let sA = 0, sB = 0, sAB = 0, sA2 = 0, sB2 = 0;
-      for (let i = 0; i < N; i++) {
-        sA += a[i]; sB += b[i]; sAB += a[i] * b[i];
-        sA2 += a[i] * a[i]; sB2 += b[i] * b[i];
-      }
-      const num = N * sAB - sA * sB;
-      const den = Math.sqrt((N * sA2 - sA * sA) * (N * sB2 - sB * sB));
-      return den < 1e-10 ? 0 : num / den;
-    }
-
-    return projected[0].map((_, pc) => {
-      const vals = projected.map(row => row[pc]);
-      const row = {};
-      for (const hh of hhVars) row[hh] = pearson(vals, physics[hh]);
-      return row;
-    }).slice(0, 10);
   },
 
   _updateStatus(msg) {

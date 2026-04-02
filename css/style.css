@@ -77,15 +77,15 @@ body {
 
 .welcome-ascii {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.2;
-  color: var(--accent-bright);
-  opacity: 0.55;
+  color: #ffffff;
+  opacity: 0.7;
   white-space: pre;
   margin-bottom: 24px;
   animation: asciiFlicker 4s ease infinite;
   user-select: none;
-  text-shadow: 0 0 8px var(--glow);
+  text-shadow: 0 0 12px rgba(255,255,255,0.3);
 }
 
 .welcome-card h2 {
@@ -162,13 +162,14 @@ body {
 
 .header-ascii {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
-  line-height: 1.1;
-  color: var(--accent-bright);
-  opacity: 0.5;
+  font-size: 7px;
+  line-height: 1.05;
+  color: #ffffff;
+  opacity: 0.65;
   white-space: pre;
   user-select: none;
-  text-shadow: 0 0 6px var(--glow);
+  text-shadow: 0 0 6px rgba(255,255,255,0.2);
+  margin: 0;
 }
 
 .header h1 {
