@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NeuroLocate — Seizure Origin Detection</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cellipse cx='32' cy='30' rx='26' ry='24' fill='%238b5cf6' opacity='0.85'/%3E%3Cpath d='M32 8 C32 8 32 52 32 52' stroke='%236d28d9' stroke-width='2' opacity='0.6'/%3E%3Cpath d='M18 16 Q24 22 20 30 Q16 38 22 46' stroke='%23c4b5fd' stroke-width='1.5' fill='none' opacity='0.5'/%3E%3Cpath d='M46 16 Q40 22 44 30 Q48 38 42 46' stroke='%23c4b5fd' stroke-width='1.5' fill='none' opacity='0.5'/%3E%3Cpath d='M22 20 Q32 18 42 20' stroke='%23c4b5fd' stroke-width='1.2' fill='none' opacity='0.4'/%3E%3Cpath d='M20 30 Q32 28 44 30' stroke='%23c4b5fd' stroke-width='1.2' fill='none' opacity='0.4'/%3E%3Cpath d='M22 40 Q32 38 42 40' stroke='%23c4b5fd' stroke-width='1.2' fill='none' opacity='0.4'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
   <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -42,8 +42,7 @@
   <!-- Header -->
   <header class="header">
     <div class="header-left">
-      <div class="header-ascii" aria-hidden="true">&#9608;&#9617;&#9618;
-&#9618;&#9617;&#9608;</div>
+      <pre class="header-ascii" aria-hidden="true" id="header-ascii-art"></pre>
       <h1>NeuroLocate <span>PINN Seizure Detection</span></h1>
     </div>
     <div class="header-controls">
@@ -56,7 +55,7 @@
         <div class="demo-menu" id="demo-menu"></div>
       </div>
       <button id="btn-run" class="primary" disabled>Run Analysis</button>
-      <button id="btn-hands" style="display:none" title="Toggle hand tracking">Hands</button>
+      <button id="btn-hands" style="display:none" title="Control the 3D brain with hand gestures">Interact with Gestures</button>
       <button id="btn-tutorial" title="Show welcome">?</button>
       <div id="model-loading" class="model-loading" style="display:none">
         <div class="model-loading-track">
@@ -88,8 +87,6 @@
     <div class="side-panel">
       <div class="tabs">
         <button class="tab-btn active" data-tab="results">Results</button>
-        <button class="tab-btn" data-tab="interpret">Interpretability</button>
-        <button class="tab-btn" data-tab="physics">Physics</button>
         <button class="tab-btn" data-tab="eeg">EEG Data</button>
         <button class="tab-btn" data-tab="about">How It Works</button>
       </div>
@@ -107,40 +104,6 @@
                 epileptogenic zone, constrained by Hodgkin-Huxley physics.
               </p>
             </div>
-          </div>
-        </div>
-
-        <!-- Interpretability Tab -->
-        <div class="tab-panel" id="tab-interpret">
-          <div id="pca-insights" class="insights-container"></div>
-          <div class="result-card">
-            <h3>PCA — Latent Space Decomposition</h3>
-            <p class="card-desc">PCA on the model's 128-dim latent space across all 2560 timesteps.</p>
-            <div id="chart-pca"></div>
-          </div>
-          <div class="result-card">
-            <h3>PC Activation Over Time</h3>
-            <p class="card-desc">How the top principal components evolve over the 10-second window.</p>
-            <div id="chart-pca-time"></div>
-          </div>
-          <div class="result-card">
-            <h3>PC — Hodgkin-Huxley Correlation</h3>
-            <p class="card-desc">Pearson correlation between each PC and the HH state variables (V, m, h, n).</p>
-            <div id="chart-pca-corr"></div>
-          </div>
-        </div>
-
-        <!-- Physics Tab -->
-        <div class="tab-panel" id="tab-physics">
-          <div class="result-card">
-            <h3>HH Optimization Convergence</h3>
-            <p class="card-desc">Physics residual during test-time optimization. Lower = better HH compliance.</p>
-            <div id="chart-convergence"></div>
-          </div>
-          <div class="result-card">
-            <h3>Hodgkin-Huxley State Variables</h3>
-            <p class="card-desc">Membrane voltage (V) and gating variables (m, h, n), refined by HH constraints.</p>
-            <div id="chart-physics"></div>
           </div>
         </div>
 
@@ -259,8 +222,8 @@
 
   <!-- Dependencies -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@5.18.0/plotly.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js"></script>
