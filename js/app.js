@@ -78,7 +78,10 @@ const App = {
       const active = await HandTracker.toggle();
       document.getElementById('btn-hands').classList.toggle('active', active);
     });
-    document.getElementById('btn-tutorial').addEventListener('click', () => this._showWelcome());
+    document.getElementById('btn-tutorial').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._showWelcome();
+    });
     document.getElementById('file-input').addEventListener('change', (e) => this._handleUpload(e));
 
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -106,25 +109,18 @@ const App = {
     const overlay = document.getElementById('welcome-overlay');
     if (!overlay) return;
 
+    // ALWAYS set up listeners (so ? button works after first dismissal)
+    const card = document.getElementById('welcome-card');
+    card.addEventListener('click', (e) => e.stopPropagation());
+    overlay.addEventListener('click', () => this._dismissWelcome());
+    document.addEventListener('keydown', () => this._dismissWelcome());
+
     const seen = localStorage.getItem('ez-welcome-seen');
     if (seen) {
       overlay.classList.add('hidden');
-      return;
+    } else {
+      this._welcomeTimer = setTimeout(() => this._dismissWelcome(), 5000);
     }
-
-    // Stop clicks on the card from propagating to the overlay
-    const card = document.getElementById('welcome-card');
-    card.addEventListener('click', (e) => e.stopPropagation());
-
-    // Click anywhere on the overlay (outside card) dismisses it
-    overlay.addEventListener('click', () => this._dismissWelcome());
-
-    // Also dismiss on any keypress
-    const keyHandler = () => { this._dismissWelcome(); document.removeEventListener('keydown', keyHandler); };
-    document.addEventListener('keydown', keyHandler);
-
-    // Auto-dismiss after 5 seconds
-    this._welcomeTimer = setTimeout(() => this._dismissWelcome(), 5000);
   },
 
   _showWelcome() {
