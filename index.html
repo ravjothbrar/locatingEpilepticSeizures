@@ -4,23 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NeuroLocate — Seizure Origin Detection</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cellipse cx='32' cy='30' rx='26' ry='24' fill='%238b5cf6' opacity='0.85'/%3E%3Cpath d='M32 8 C32 8 32 52 32 52' stroke='%236d28d9' stroke-width='2' opacity='0.6'/%3E%3Cpath d='M18 16 Q24 22 20 30 Q16 38 22 46' stroke='%23c4b5fd' stroke-width='1.5' fill='none' opacity='0.5'/%3E%3Cpath d='M46 16 Q40 22 44 30 Q48 38 42 46' stroke='%23c4b5fd' stroke-width='1.5' fill='none' opacity='0.5'/%3E%3Cpath d='M22 20 Q32 18 42 20' stroke='%23c4b5fd' stroke-width='1.2' fill='none' opacity='0.4'/%3E%3Cpath d='M20 30 Q32 28 44 30' stroke='%23c4b5fd' stroke-width='1.2' fill='none' opacity='0.4'/%3E%3Cpath d='M22 40 Q32 38 42 40' stroke='%23c4b5fd' stroke-width='1.2' fill='none' opacity='0.4'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
-  <!-- Welcome Popup (single, click-outside-to-dismiss) -->
+  <!-- Welcome Popup (single, click-outside-to-dismiss, auto-dismiss 5s) -->
   <div id="welcome-overlay" class="welcome-overlay">
     <div class="welcome-card" id="welcome-card">
       <div class="welcome-ascii" id="ascii-art"></div>
       <h2>NeuroLocate</h2>
       <p>Predict the 3D origin of epileptic seizures using a <strong>Physics-Informed Neural Network</strong> with Hodgkin-Huxley constraints. All inference runs locally in your browser.</p>
       <div class="welcome-features">
-        <div class="welcome-feature">
-          <strong>3D Brain</strong>
-          Drag to rotate, scroll to zoom, click electrodes
-        </div>
         <div class="welcome-feature">
           <strong>Sample Patients</strong>
           10 cases with different seizure origins
@@ -30,8 +27,12 @@
           CSV with 18 channels at 256 Hz
         </div>
         <div class="welcome-feature">
-          <strong>Hand Tracking</strong>
-          Palms apart to zoom in, together to zoom out
+          <strong>3D Brain</strong>
+          Use your hands and palms to interactively move the 3D brain. Bring your palms apart to zoom in, together to zoom out
+        </div>
+        <div class="welcome-feature">
+          <strong>AI Model</strong>
+          Uses brain thermodynamics to rule out impossible places where the seizure originated, increasing accuracy
         </div>
       </div>
       <div class="welcome-hint">Click anywhere outside to begin</div>

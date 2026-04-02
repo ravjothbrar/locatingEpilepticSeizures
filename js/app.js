@@ -15,8 +15,6 @@ const App = {
 
     this._updateStatus('Ready');
     this._bindUI();
-    this._initWelcome();
-    this._initASCII();
 
     HandTracker.init().then(ok => {
       if (ok) document.getElementById('btn-hands').style.display = 'inline-flex';
@@ -52,26 +50,46 @@ const App = {
   },
 
   // === Welcome Popup (single, click-outside-to-dismiss) ===
+  _dismissWelcome() {
+    const overlay = document.getElementById('welcome-overlay');
+    if (!overlay || overlay.classList.contains('hidden')) return;
+    overlay.classList.add('hidden');
+    localStorage.setItem('ez-welcome-seen', '1');
+    if (this._welcomeTimer) { clearTimeout(this._welcomeTimer); this._welcomeTimer = null; }
+  },
+
+  _welcomeTimer: null,
+
   _initWelcome() {
     const overlay = document.getElementById('welcome-overlay');
-    const card = document.getElementById('welcome-card');
-    const seen = localStorage.getItem('ez-welcome-seen');
+    if (!overlay) return;
 
+    const seen = localStorage.getItem('ez-welcome-seen');
     if (seen) {
       overlay.classList.add('hidden');
       return;
     }
 
-    overlay.addEventListener('click', (e) => {
-      if (!card.contains(e.target)) {
-        overlay.classList.add('hidden');
-        localStorage.setItem('ez-welcome-seen', '1');
-      }
-    });
+    // Stop clicks on the card from propagating to the overlay
+    const card = document.getElementById('welcome-card');
+    card.addEventListener('click', (e) => e.stopPropagation());
+
+    // Click anywhere on the overlay (outside card) dismisses it
+    overlay.addEventListener('click', () => this._dismissWelcome());
+
+    // Also dismiss on any keypress
+    const keyHandler = () => { this._dismissWelcome(); document.removeEventListener('keydown', keyHandler); };
+    document.addEventListener('keydown', keyHandler);
+
+    // Auto-dismiss after 5 seconds
+    this._welcomeTimer = setTimeout(() => this._dismissWelcome(), 5000);
   },
 
   _showWelcome() {
-    document.getElementById('welcome-overlay').classList.remove('hidden');
+    const overlay = document.getElementById('welcome-overlay');
+    overlay.classList.remove('hidden');
+    if (this._welcomeTimer) clearTimeout(this._welcomeTimer);
+    this._welcomeTimer = setTimeout(() => this._dismissWelcome(), 5000);
   },
 
   // === ASCII Art ===
@@ -471,4 +489,9 @@ const App = {
   }
 };
 
-window.addEventListener('DOMContentLoaded', () => App.init());
+window.addEventListener('DOMContentLoaded', () => {
+  // Welcome popup MUST be set up immediately, before async model load blocks
+  App._initWelcome();
+  App._initASCII();
+  App.init();
+});
