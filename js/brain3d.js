@@ -243,30 +243,31 @@ const Brain3D = {
     if (this.ezGlow) this.scene.remove(this.ezGlow);
 
     const pos = this._normToScene(coord.x, coord.y, coord.z, meta);
-    const radius = Math.max(0.05, Math.min(0.4, coord.sigma * 0.3));
+    const radius = Math.max(0.08, Math.min(0.5, coord.sigma * 0.35));
 
     const coreGeo = new THREE.SphereGeometry(radius, 24, 16);
-    const coreMat = new THREE.MeshPhysicalMaterial({
-      color: 0xff2200,
-      emissive: 0xff4400,
-      emissiveIntensity: 2.0,
+    const coreMat = new THREE.MeshBasicMaterial({
+      color: 0xff3300,
       transparent: true,
-      opacity: 0.85,
-      roughness: 0.2,
+      opacity: 0.92,
+      depthTest: false,
     });
     this.ezHotspot = new THREE.Mesh(coreGeo, coreMat);
     this.ezHotspot.position.copy(pos);
+    this.ezHotspot.renderOrder = 999;
     this.scene.add(this.ezHotspot);
 
-    const glowGeo = new THREE.SphereGeometry(radius * 2.5, 16, 12);
+    const glowGeo = new THREE.SphereGeometry(radius * 3, 16, 12);
     const glowMat = new THREE.MeshBasicMaterial({
       color: 0xff4400,
       transparent: true,
-      opacity: 0.12,
+      opacity: 0.18,
+      depthTest: false,
       side: THREE.BackSide,
     });
     this.ezGlow = new THREE.Mesh(glowGeo, glowMat);
     this.ezGlow.position.copy(pos);
+    this.ezGlow.renderOrder = 998;
     this.scene.add(this.ezGlow);
 
     this.electrodes.forEach(el => {
