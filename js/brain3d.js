@@ -1,7 +1,7 @@
 const Brain3D = {
   scene: null, camera: null, renderer: null, controls: null,
-  brainMesh: null, electrodes: [], ezHotspot: null, ezGlow: null,
-  electrodeLabels: [],
+  brainMesh: null, headMesh: null, electrodes: [], ezHotspot: null, ezGlow: null,
+  electrodeLabels: [], floatingLabels: [],
   container: null, raycaster: null, mouse: null,
   tooltip: null, mniCoords: null, electrodeNames: null,
   clock: null,
@@ -42,6 +42,8 @@ const Brain3D = {
     this.scene.add(dir1, dir2, dir3);
 
     this._createBrain();
+    this._createHead();
+    this._createFloatingLabels();
 
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
@@ -64,8 +66,6 @@ const Brain3D = {
   },
 
   _createBrain() {
-    // Real brain proportions: ~17cm AP, ~14cm lateral, ~13cm SI
-    // Normalized: AP=1.3, lateral=1.07, SI=1.0
     const geo = new THREE.SphereGeometry(1, 96, 72);
     const pos = geo.attributes.position;
     const colors = new Float32Array(pos.count * 3);
@@ -73,63 +73,47 @@ const Brain3D = {
     for (let i = 0; i < pos.count; i++) {
       let x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
 
-      // Base ellipsoid — real brain proportions (y=AP, x=lateral, z=SI)
-      y *= 1.3;
-      x *= 1.07;
-      z *= 1.0;
+      y *= 1.3; x *= 1.07; z *= 1.0;
 
-      // --- Cerebrum shape: frontal pole curves down, occipital is rounder ---
-
-      // Frontal pole: narrows laterally and curves downward
-      const frontness = Math.max(0, (y - 0.5) / 0.8); // 0 at center, 1 at front
+      const frontness = Math.max(0, (y - 0.5) / 0.8);
       x *= 1 - frontness * 0.2;
-      z -= frontness * frontness * 0.15; // frontal lobe curves down
+      z -= frontness * frontness * 0.15;
 
-      // Occipital region: slightly pointed at back
       const backness = Math.max(0, (-y - 0.7) / 0.6);
       x *= 1 - backness * 0.15;
-      z += backness * 0.05; // occipital slightly higher
+      z += backness * 0.05;
 
-      // --- Flatten the base (inferior surface) ---
       if (z < -0.35) z = -0.35 + (z + 0.35) * 0.2;
 
-      // --- Interhemispheric fissure (deep midline split on top) ---
       const fissureStrength = 0.2 * Math.exp(-x * x / (2 * 0.04 * 0.04));
       const topness = Math.max(0, z * 2.0);
       z -= fissureStrength * topness;
 
-      // --- Temporal lobe: prominent bulge below Sylvian fissure ---
       const absX = Math.abs(x);
-      // Temporal lobe extends forward and down on lateral sides
       if (absX > 0.25 && z < 0.1 && y > -0.4) {
         const temporalBulge = 0.1 * Math.exp(-((z + 0.15) * (z + 0.15)) * 8)
                                    * Math.exp(-((absX - 0.7) * (absX - 0.7)) * 3)
                                    * (1 - Math.max(0, -y - 0.2) * 2);
-        const r = Math.sqrt(x * x + z * z) || 1;
-        x += (x / r) * temporalBulge * 0.5;
+        const r2 = Math.sqrt(x * x + z * z) || 1;
+        x += (x / r2) * temporalBulge * 0.5;
         z -= temporalBulge * 0.3;
       }
 
-      // Temporal pole: pointed forward extension
       if (absX > 0.4 && z < -0.1 && y > 0.2) {
         y += 0.08 * Math.exp(-((z + 0.2) * (z + 0.2)) * 10) * Math.exp(-((absX - 0.6) * (absX - 0.6)) * 5);
       }
 
-      // --- Sylvian fissure: deep lateral groove separating temporal from frontal/parietal ---
       const sylvianDepth = 0.035 * Math.max(0, absX - 0.3)
                                   * Math.exp(-((z + 0.02) * (z + 0.02)) * 25)
                                   * Math.exp(-((y - 0.15) * (y - 0.15)) * 1.5);
 
-      // --- Central sulcus: diagonal groove separating frontal from parietal ---
       const centralDepth = 0.025 * Math.max(0, z)
                                   * Math.exp(-((y - 0.1 + absX * 0.3) * (y - 0.1 + absX * 0.3)) * 40);
 
-      // --- Pre/postcentral and other major sulci ---
       const r = Math.sqrt(x * x + y * y + z * z) || 1;
       const theta = Math.atan2(x, y);
       const phi = Math.acos(Math.min(1, Math.max(-1, z / r)));
 
-      // Gyri: multi-scale cortical folds
       const g1 = Math.sin(theta * 7 + phi * 5) * 0.02;
       const g2 = Math.sin(theta * 13 + phi * 9 + 1.7) * 0.013;
       const g3 = Math.sin(theta * 21 + phi * 16 + 3.1) * 0.007;
@@ -138,13 +122,11 @@ const Brain3D = {
       const g6 = Math.sin(theta * 30 + phi * 25 + 0.3) * 0.004;
       const gyri = g1 + g2 + g3 + g4 + g5 + g6;
 
-      // Apply all deformations along surface normal
       const totalDeform = gyri - sylvianDepth - centralDepth;
       x += (x / r) * totalDeform;
       y += (y / r) * totalDeform;
       z += (z / r) * totalDeform;
 
-      // --- Brainstem hint: small downward extension at posterior-inferior ---
       if (y < -0.5 && z < -0.2) {
         const stemFactor = Math.exp(-((y + 0.9) * (y + 0.9)) * 8) * Math.exp(-((z + 0.4) * (z + 0.4)) * 6);
         z -= stemFactor * 0.15;
@@ -153,22 +135,15 @@ const Brain3D = {
 
       pos.setXYZ(i, x, y, z);
 
-      // Vertex colors: pinkish cortex with red-tinted gyri, darker sulci
       const sulcusAmount = Math.max(0, -(totalDeform) * 15);
-      // Base cortex: warm pinkish (like reference image)
       let cr = 0.85 - sulcusAmount * 0.15;
       let cg = 0.62 - sulcusAmount * 0.2;
       let cb = 0.65 - sulcusAmount * 0.12;
 
-      // Regional tinting:
-      // Frontal lobe: slightly pinker
       if (y > 0.3 && z > -0.1) { cr += 0.04; cg -= 0.02; }
-      // Temporal lobe: slightly redder
       if (absX > 0.4 && z < 0.05) { cr += 0.06; cg -= 0.04; cb -= 0.03; }
-      // Parietal: slightly lighter
       if (z > 0.3) { cr += 0.02; cg += 0.02; cb += 0.03; }
 
-      // Subtle cortex variation
       const hueNoise = Math.sin(theta * 4 + phi * 3) * 0.03;
       colors[i * 3] = Math.max(0.35, Math.min(1, cr + hueNoise));
       colors[i * 3 + 1] = Math.max(0.25, Math.min(0.9, cg - hueNoise * 0.3));
@@ -193,12 +168,122 @@ const Brain3D = {
     this.brainMesh = new THREE.Mesh(geo, mat);
     this.scene.add(this.brainMesh);
 
-    // Very subtle wireframe
     const wire = new THREE.LineSegments(
       new THREE.WireframeGeometry(geo),
       new THREE.LineBasicMaterial({ color: 0x8b5cf6, transparent: true, opacity: 0.02 })
     );
     this.scene.add(wire);
+  },
+
+  // --- Transparent head outline ---
+  _createHead() {
+    const geo = new THREE.SphereGeometry(1, 64, 48);
+    const pos = geo.attributes.position;
+
+    for (let i = 0; i < pos.count; i++) {
+      let x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+
+      // Skull shape: slightly larger than brain, rounder
+      x *= 1.22;
+      y *= 1.45;
+      z *= 1.15;
+
+      // Forehead: bulges forward and up
+      const front = Math.max(0, (y - 0.6) / 0.8);
+      z += front * 0.15;
+
+      // Chin/jaw: extends downward at front
+      if (z < -0.3 && y > 0) {
+        const jawFactor = Math.max(0, -z - 0.3) * Math.max(0, y) * 0.8;
+        z -= jawFactor * 0.6;
+        x *= 1 - jawFactor * 0.3;
+        y += jawFactor * 0.1;
+      }
+
+      // Narrow jaw
+      if (z < -0.5) {
+        const narrowFactor = Math.max(0, -z - 0.5) * 0.5;
+        x *= 1 - narrowFactor * 0.4;
+      }
+
+      // Chin point
+      if (z < -0.8 && y > 0.2) {
+        y += Math.max(0, -z - 0.8) * 0.3;
+      }
+
+      // Nose bump
+      if (y > 0.8 && z > -0.4 && z < 0.1 && Math.abs(x) < 0.15) {
+        const noseFactor = Math.exp(-x * x * 80) * Math.exp(-((z + 0.15) * (z + 0.15)) * 8);
+        y += noseFactor * 0.2;
+      }
+
+      // Back of head: rounder
+      if (y < -0.8) {
+        const backRound = Math.max(0, -y - 0.8) * 0.1;
+        y -= backRound;
+      }
+
+      // Neck: narrow cylinder below
+      if (z < -0.9) {
+        const neckFactor = Math.max(0, -z - 0.9) * 0.4;
+        x *= Math.max(0.3, 1 - neckFactor);
+        y *= Math.max(0.3, 1 - neckFactor * 0.7);
+      }
+
+      pos.setXYZ(i, x, y, z);
+    }
+
+    geo.computeVertexNormals();
+
+    const mat = new THREE.MeshPhysicalMaterial({
+      color: 0x8899bb,
+      transparent: true,
+      opacity: 0.08,
+      roughness: 0.5,
+      metalness: 0.1,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+
+    this.headMesh = new THREE.Mesh(geo, mat);
+    this.scene.add(this.headMesh);
+
+    // Head outline wireframe
+    const wireGeo = new THREE.EdgesGeometry(geo, 15);
+    const wireMat = new THREE.LineBasicMaterial({
+      color: 0x8899cc,
+      transparent: true,
+      opacity: 0.12,
+    });
+    const wireframe = new THREE.LineSegments(wireGeo, wireMat);
+    this.scene.add(wireframe);
+    this._headWire = wireframe;
+  },
+
+  // --- Floating labels inside brain ---
+  _createFloatingLabels() {
+    const labels = [
+      { text: 'Na+', pos: [0.3, 0.4, 0.3] },
+      { text: 'K+', pos: [-0.35, -0.3, 0.2] },
+      { text: 'dV/dt', pos: [0.0, 0.2, 0.5] },
+      { text: 'Ca2+', pos: [-0.2, 0.5, -0.1] },
+      { text: 'Cl-', pos: [0.4, -0.4, 0.0] },
+      { text: 'HH', pos: [0.0, -0.5, 0.3] },
+      { text: 'gNa', pos: [-0.4, 0.2, 0.4] },
+      { text: 'gK', pos: [0.3, -0.1, -0.2] },
+      { text: 'I_m', pos: [0.15, 0.6, 0.1] },
+      { text: 'dm/dt', pos: [-0.3, -0.1, 0.45] },
+      { text: 'E_Na', pos: [0.25, -0.5, 0.15] },
+      { text: 'E_K', pos: [-0.15, 0.35, -0.15] },
+    ];
+
+    labels.forEach(l => {
+      const sprite = this._makeLabel(l.text, '#ffffff', 0.3);
+      sprite.position.set(l.pos[0], l.pos[1], l.pos[2]);
+      sprite.userData = { basePos: l.pos.slice(), drift: Math.random() * Math.PI * 2 };
+      this.scene.add(sprite);
+      this.floatingLabels.push(sprite);
+    });
   },
 
   setElectrodes(mniCoords, names) {
@@ -225,9 +310,7 @@ const Brain3D = {
       this.scene.add(mesh);
       this.electrodes.push(mesh);
 
-      // Text label sprite
-      const label = this._makeLabel(names[idx]);
-      // Offset label outward from brain center
+      const label = this._makeLabel(names[idx], '#c4b5fd', 0.85);
       const dir = pos.clone().normalize();
       label.position.copy(pos).add(dir.multiplyScalar(0.15));
       this.scene.add(label);
@@ -235,13 +318,13 @@ const Brain3D = {
     });
   },
 
-  _makeLabel(text) {
+  _makeLabel(text, color, opacity) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     canvas.width = 128;
     canvas.height = 32;
     ctx.font = 'bold 18px Inter, sans-serif';
-    ctx.fillStyle = '#c4b5fd';
+    ctx.fillStyle = color || '#c4b5fd';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, 64, 16);
@@ -251,7 +334,7 @@ const Brain3D = {
     const mat = new THREE.SpriteMaterial({
       map: texture,
       transparent: true,
-      opacity: 0.85,
+      opacity: opacity !== undefined ? opacity : 0.85,
       depthTest: false,
       sizeAttenuation: true,
     });
@@ -282,10 +365,13 @@ const Brain3D = {
     const pos = this._normToScene(coord.x, coord.y, coord.z, meta);
     const radius = Math.max(0.03, Math.min(0.12, coord.sigma * 0.08));
 
-    // Inner core — always visible, bright, embedded inside the brain
-    const coreGeo = new THREE.SphereGeometry(radius, 20, 14);
-    const coreMat = new THREE.MeshBasicMaterial({
-      color: 0xff3300,
+    // 3D sphere core — uses Phong material for proper 3D shading
+    const coreGeo = new THREE.SphereGeometry(radius, 24, 18);
+    const coreMat = new THREE.MeshPhongMaterial({
+      color: 0xff2200,
+      emissive: 0xff3300,
+      emissiveIntensity: 0.8,
+      shininess: 60,
       transparent: true,
       opacity: 0.9,
       depthTest: false,
@@ -295,7 +381,7 @@ const Brain3D = {
     this.ezHotspot.renderOrder = 999;
     this.scene.add(this.ezHotspot);
 
-    // Pulsing glow aura around the core
+    // Pulsing glow aura
     const glowGeo = new THREE.SphereGeometry(radius * 3, 16, 12);
     const glowMat = new THREE.MeshBasicMaterial({
       color: 0xff4400,
@@ -318,9 +404,7 @@ const Brain3D = {
     });
   },
 
-  updateEZProgress(step, totalSteps) {
-    // Progress handled by pulse animation — no-op during optimization
-  },
+  updateEZProgress(step, totalSteps) {},
 
   _onClick(event) {
     const rect = this.renderer.domElement.getBoundingClientRect();
@@ -360,10 +444,10 @@ const Brain3D = {
 
   _animate() {
     requestAnimationFrame(() => this._animate());
+    const elapsed = this.clock.getElapsedTime();
 
     if (this.ezHotspot) {
       // Core always visible; glow pulses: 0.7s on, 1.0s off
-      const elapsed = this.clock.getElapsedTime();
       const cycle = elapsed % 1.7;
       let pulse;
       if (cycle < 0.7) {
@@ -372,12 +456,20 @@ const Brain3D = {
       } else {
         pulse = 0;
       }
-      // Core stays bright, subtle brightness variation
+      this.ezHotspot.material.emissiveIntensity = 0.6 + pulse * 0.8;
       this.ezHotspot.material.opacity = 0.85 + pulse * 0.15;
-      // Glow aura pulses in and out
       this.ezGlow.material.opacity = pulse * 0.3;
       this.ezGlow.scale.setScalar(1 + pulse * 0.4);
     }
+
+    // Floating labels drift gently
+    this.floatingLabels.forEach(sprite => {
+      const d = sprite.userData;
+      sprite.position.x = d.basePos[0] + Math.sin(elapsed * 0.3 + d.drift) * 0.03;
+      sprite.position.y = d.basePos[1] + Math.cos(elapsed * 0.25 + d.drift * 1.3) * 0.03;
+      sprite.position.z = d.basePos[2] + Math.sin(elapsed * 0.2 + d.drift * 0.7) * 0.02;
+      sprite.material.opacity = 0.18 + Math.sin(elapsed * 0.5 + d.drift) * 0.08;
+    });
 
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
@@ -392,5 +484,12 @@ const Brain3D = {
       distance * Math.cos(phi) * Math.cos(theta)
     );
     this.camera.lookAt(0, 0, 0);
+  },
+
+  // Called by theme toggle to update scene background
+  setTheme(isDark) {
+    const bg = isDark ? 0x06060e : 0xf0eef5;
+    this.scene.background.set(bg);
+    this.scene.fog.color.set(bg);
   }
 };
