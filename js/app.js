@@ -13,6 +13,7 @@ const App = {
     // 2. Start 3D brain spinning right away (no electrodes yet)
     try {
       Brain3D.init('brain-container');
+      this._initTheme();
     } catch (err) {
       console.error('Brain3D init failed:', err);
     }
@@ -84,6 +85,9 @@ const App = {
     });
     document.getElementById('file-input').addEventListener('change', (e) => this._handleUpload(e));
 
+    // Theme toggle
+    document.getElementById('btn-theme').addEventListener('click', () => this._toggleTheme());
+
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -133,19 +137,19 @@ const App = {
   // === ASCII Art ===
   _initASCII() {
     const brainArt = [
-      '          _---~~---_           ',
-      '       _-~  _--_   ~-_        ',
-      '      / _--~ /  ~-_   \\       ',
-      '     / /  __/ \\   ~\\   \\      ',
-      '    | | /~  \\  \\~\\ |\\  |     ',
-      '    | |/ \\   ~-_\\ \\| \\ |     ',
-      '    |  \\  \\__/~  \\  \\ \\|     ',
-      '     \\  ~-_  __-~  / /       ',
-      '      \\    ~~  __-~ /        ',
-      '       ~-_  _-~  _-~         ',
-      '         _||  __/             ',
-      '        /  |_/                ',
-      '        \\__|                  ',
+      '       _---~~---_             ',
+      '     _-~  _--_   ~-_          ',
+      '    / _--~ /  ~-_   \\         ',
+      '   / /  __/ \\   ~\\   \\        ',
+      '  | | /~  \\  \\~\\ |\\  |       ',
+      '  | |/ \\   ~-_\\ \\| \\ |       ',
+      '  |  \\  \\__/~  \\  \\ \\|       ',
+      '   \\  ~-_  __-~  / /         ',
+      '    \\    ~~  __-~ /           ',
+      '     ~-_ __-~  _-~            ',
+      '        \\__  /~               ',
+      '           \\/ |               ',
+      '            \\__|              ',
     ];
     const text = brainArt.join('\n');
 
@@ -423,6 +427,24 @@ const App = {
   _updateStatus(msg) {
     const el = document.getElementById('status');
     if (el) el.textContent = msg;
+  },
+
+  _isDark: true,
+
+  _toggleTheme() {
+    this._isDark = !this._isDark;
+    document.body.classList.toggle('light-mode', !this._isDark);
+    Brain3D.setTheme(this._isDark);
+    localStorage.setItem('ez-theme', this._isDark ? 'dark' : 'light');
+  },
+
+  _initTheme() {
+    const saved = localStorage.getItem('ez-theme');
+    if (saved === 'light') {
+      this._isDark = false;
+      document.body.classList.add('light-mode');
+      Brain3D.setTheme(false);
+    }
   }
 };
 

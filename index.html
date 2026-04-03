@@ -59,6 +59,9 @@
       <button id="btn-run" class="primary" disabled>Run Analysis</button>
       <button id="btn-hands" style="display:none" title="Control the 3D brain with hand gestures">Interact with Gestures</button>
       <button id="btn-tutorial" title="Show welcome">?</button>
+      <button id="btn-theme" title="Toggle light/dark mode">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
       <div id="model-loading" class="model-loading" style="display:none">
         <div class="model-loading-track">
           <div class="model-loading-fill" id="model-loading-fill"></div>
@@ -205,6 +208,11 @@
       </div>
 
       <div class="footer">
+        <a href="https://ravjothbrar.com/" target="_blank" class="created-by">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Created by Ravjoth Brar
+        </a>
+        <span class="footer-sep">&middot;</span>
         Research only — not a medical device.
         Built with <a href="https://www.tensorflow.org/js" target="_blank">TF.js</a>,
         <a href="https://threejs.org" target="_blank">Three.js</a> &
