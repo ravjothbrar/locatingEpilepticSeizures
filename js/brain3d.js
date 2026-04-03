@@ -15,7 +15,7 @@ const Brain3D = {
     this.scene.fog = new THREE.Fog(0x06060e, 8, 18);
 
     this.camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 50);
-    this.camera.position.set(0, 0, 4);
+    this.camera.position.set(0, 0, 5.5);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setSize(w, h);
@@ -63,119 +63,138 @@ const Brain3D = {
   },
 
   _createBrain() {
-    const geo = new THREE.SphereGeometry(1, 80, 60);
+    // Real brain proportions: ~17cm AP, ~14cm lateral, ~13cm SI
+    // Normalized: AP=1.3, lateral=1.07, SI=1.0
+    const geo = new THREE.SphereGeometry(1, 96, 72);
     const pos = geo.attributes.position;
     const colors = new Float32Array(pos.count * 3);
-
-    // Seeded noise function for reproducible brain folds
-    const hash = (x, y, z) => {
-      let h = x * 374761393 + y * 668265263 + z * 1274126177;
-      h = Math.sin(h) * 43758.5453;
-      return h - Math.floor(h);
-    };
 
     for (let i = 0; i < pos.count; i++) {
       let x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
 
-      // Brain proportions: elongated front-back, wider at sides, flatter top-bottom
-      y *= 1.3;   // elongate anterior-posterior
-      z *= 0.85;  // flatten superior-inferior
-      x *= 1.08;  // slight lateral width
+      // Base ellipsoid — real brain proportions (y=AP, x=lateral, z=SI)
+      y *= 1.3;
+      x *= 1.07;
+      z *= 1.0;
 
-      // Interhemispheric fissure — deep midline split
-      const fissureWidth = 0.06;
-      const fissureDepth = 0.25 * Math.exp(-x * x / (2 * fissureWidth * fissureWidth));
-      const topFactor = Math.max(0, z * 1.5); // deeper on top surface
-      z -= fissureDepth * topFactor;
+      // --- Cerebrum shape: frontal pole curves down, occipital is rounder ---
 
-      // Flatten the base (inferior surface)
-      if (z < -0.25) z = -0.25 + (z + 0.25) * 0.25;
+      // Frontal pole: narrows laterally and curves downward
+      const frontness = Math.max(0, (y - 0.5) / 0.8); // 0 at center, 1 at front
+      x *= 1 - frontness * 0.2;
+      z -= frontness * frontness * 0.15; // frontal lobe curves down
 
-      // Frontal narrowing
-      const frontFactor = Math.max(0, y - 0.4) * 0.3;
-      x *= (1 - frontFactor * 0.15);
+      // Occipital region: slightly pointed at back
+      const backness = Math.max(0, (-y - 0.7) / 0.6);
+      x *= 1 - backness * 0.15;
+      z += backness * 0.05; // occipital slightly higher
 
-      // Occipital rounding (slight protrusion at back)
-      if (y < -0.6) {
-        const backPush = (y + 0.6) * 0.08;
-        y += backPush;
-      }
+      // --- Flatten the base (inferior surface) ---
+      if (z < -0.35) z = -0.35 + (z + 0.35) * 0.2;
 
-      // Temporal lobe bulges (lower lateral)
-      const temporalAngle = Math.atan2(z, Math.abs(x));
-      if (temporalAngle < -0.3 && Math.abs(x) > 0.3) {
-        const bulge = 0.06 * Math.exp(-((temporalAngle + 0.8) * (temporalAngle + 0.8)) * 4);
+      // --- Interhemispheric fissure (deep midline split on top) ---
+      const fissureStrength = 0.2 * Math.exp(-x * x / (2 * 0.04 * 0.04));
+      const topness = Math.max(0, z * 2.0);
+      z -= fissureStrength * topness;
+
+      // --- Temporal lobe: prominent bulge below Sylvian fissure ---
+      const absX = Math.abs(x);
+      // Temporal lobe extends forward and down on lateral sides
+      if (absX > 0.25 && z < 0.1 && y > -0.4) {
+        const temporalBulge = 0.1 * Math.exp(-((z + 0.15) * (z + 0.15)) * 8)
+                                   * Math.exp(-((absX - 0.7) * (absX - 0.7)) * 3)
+                                   * (1 - Math.max(0, -y - 0.2) * 2);
         const r = Math.sqrt(x * x + z * z) || 1;
-        x += (x / r) * bulge;
-        z += (z / r) * bulge;
+        x += (x / r) * temporalBulge * 0.5;
+        z -= temporalBulge * 0.3;
       }
 
-      // Major sulci (deep grooves) — using sine waves at brain-scale frequencies
+      // Temporal pole: pointed forward extension
+      if (absX > 0.4 && z < -0.1 && y > 0.2) {
+        y += 0.08 * Math.exp(-((z + 0.2) * (z + 0.2)) * 10) * Math.exp(-((absX - 0.6) * (absX - 0.6)) * 5);
+      }
+
+      // --- Sylvian fissure: deep lateral groove separating temporal from frontal/parietal ---
+      const sylvianDepth = 0.035 * Math.max(0, absX - 0.3)
+                                  * Math.exp(-((z + 0.02) * (z + 0.02)) * 25)
+                                  * Math.exp(-((y - 0.15) * (y - 0.15)) * 1.5);
+
+      // --- Central sulcus: diagonal groove separating frontal from parietal ---
+      const centralDepth = 0.025 * Math.max(0, z)
+                                  * Math.exp(-((y - 0.1 + absX * 0.3) * (y - 0.1 + absX * 0.3)) * 40);
+
+      // --- Pre/postcentral and other major sulci ---
       const r = Math.sqrt(x * x + y * y + z * z) || 1;
-      const theta = Math.atan2(x, y); // azimuthal
-      const phi = Math.acos(z / r);   // polar
+      const theta = Math.atan2(x, y);
+      const phi = Math.acos(Math.min(1, Math.max(-1, z / r)));
 
-      // Central sulcus (Rolandic fissure) — runs roughly coronal
-      const centralSulcus = Math.exp(-((y - 0.05) * (y - 0.05)) * 60) *
-                            Math.max(0, z) * 0.04 * Math.cos(x * 3);
+      // Gyri: multi-scale cortical folds
+      const g1 = Math.sin(theta * 7 + phi * 5) * 0.02;
+      const g2 = Math.sin(theta * 13 + phi * 9 + 1.7) * 0.013;
+      const g3 = Math.sin(theta * 21 + phi * 16 + 3.1) * 0.007;
+      const g4 = Math.sin(x * 16 + y * 11 + z * 14) * 0.009;
+      const g5 = Math.cos(x * 23 + y * 18 - z * 12 + 0.8) * 0.005;
+      const g6 = Math.sin(theta * 30 + phi * 25 + 0.3) * 0.004;
+      const gyri = g1 + g2 + g3 + g4 + g5 + g6;
 
-      // Lateral (Sylvian) fissure — horizontal on sides
-      const sylvian = Math.exp(-((z + 0.05) * (z + 0.05)) * 40) *
-                      Math.max(0, Math.abs(x) - 0.3) * 0.04 *
-                      Math.exp(-((y - 0.1) * (y - 0.1)) * 3);
+      // Apply all deformations along surface normal
+      const totalDeform = gyri - sylvianDepth - centralDepth;
+      x += (x / r) * totalDeform;
+      y += (y / r) * totalDeform;
+      z += (z / r) * totalDeform;
 
-      // Gyri folds — multi-frequency procedural displacement
-      const g1 = Math.sin(theta * 8 + phi * 6) * 0.018;
-      const g2 = Math.sin(theta * 14 + phi * 10 + 1.3) * 0.012;
-      const g3 = Math.sin(theta * 22 + phi * 18 + 2.7) * 0.006;
-      const g4 = Math.sin(x * 18 + y * 12 + z * 15) * 0.008;
-      const g5 = Math.cos(x * 25 + y * 20 - z * 10 + 0.5) * 0.005;
-      const gyri = g1 + g2 + g3 + g4 + g5;
-
-      // Apply sulci (inward) and gyri (in/out along normal)
-      const sulcusTotal = centralSulcus + sylvian;
-      x += (x / r) * (gyri - sulcusTotal);
-      y += (y / r) * (gyri - sulcusTotal);
-      z += (z / r) * (gyri - sulcusTotal);
+      // --- Brainstem hint: small downward extension at posterior-inferior ---
+      if (y < -0.5 && z < -0.2) {
+        const stemFactor = Math.exp(-((y + 0.9) * (y + 0.9)) * 8) * Math.exp(-((z + 0.4) * (z + 0.4)) * 6);
+        z -= stemFactor * 0.15;
+        x *= 1 - stemFactor * 0.4;
+      }
 
       pos.setXYZ(i, x, y, z);
 
-      // Vertex colors: pinkish-purple cortex with subtle variation in sulci
-      const depth = gyri - sulcusTotal; // negative = sulcus
-      const sulcusDarkness = Math.max(0, -depth * 12);
-      const baseR = 0.82 - sulcusDarkness * 0.2;
-      const baseG = 0.68 - sulcusDarkness * 0.25;
-      const baseB = 0.78 - sulcusDarkness * 0.15;
-      // Slight hue variation across cortex
-      const hueShift = Math.sin(theta * 3 + phi * 2) * 0.04;
-      colors[i * 3] = Math.max(0.4, Math.min(1, baseR + hueShift));
-      colors[i * 3 + 1] = Math.max(0.3, Math.min(1, baseG - hueShift * 0.5));
-      colors[i * 3 + 2] = Math.max(0.4, Math.min(1, baseB + hueShift * 0.3));
+      // Vertex colors: pinkish cortex with red-tinted gyri, darker sulci
+      const sulcusAmount = Math.max(0, -(totalDeform) * 15);
+      // Base cortex: warm pinkish (like reference image)
+      let cr = 0.85 - sulcusAmount * 0.15;
+      let cg = 0.62 - sulcusAmount * 0.2;
+      let cb = 0.65 - sulcusAmount * 0.12;
+
+      // Regional tinting:
+      // Frontal lobe: slightly pinker
+      if (y > 0.3 && z > -0.1) { cr += 0.04; cg -= 0.02; }
+      // Temporal lobe: slightly redder
+      if (absX > 0.4 && z < 0.05) { cr += 0.06; cg -= 0.04; cb -= 0.03; }
+      // Parietal: slightly lighter
+      if (z > 0.3) { cr += 0.02; cg += 0.02; cb += 0.03; }
+
+      // Subtle cortex variation
+      const hueNoise = Math.sin(theta * 4 + phi * 3) * 0.03;
+      colors[i * 3] = Math.max(0.35, Math.min(1, cr + hueNoise));
+      colors[i * 3 + 1] = Math.max(0.25, Math.min(0.9, cg - hueNoise * 0.3));
+      colors[i * 3 + 2] = Math.max(0.3, Math.min(0.9, cb + hueNoise * 0.2));
     }
 
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geo.computeVertexNormals();
 
-    // Solid cortex material with vertex colors for realistic shading
     const mat = new THREE.MeshPhysicalMaterial({
       vertexColors: true,
-      transparent: true,
-      opacity: 0.88,
-      roughness: 0.85,
+      transparent: false,
+      roughness: 0.82,
       metalness: 0.02,
       side: THREE.DoubleSide,
       depthWrite: true,
-      clearcoat: 0.1,
-      clearcoatRoughness: 0.8,
+      clearcoat: 0.08,
+      clearcoatRoughness: 0.85,
     });
 
     this.brainMesh = new THREE.Mesh(geo, mat);
     this.scene.add(this.brainMesh);
 
-    // Subtle purple wireframe overlay for the tech aesthetic
+    // Very subtle wireframe
     const wire = new THREE.LineSegments(
       new THREE.WireframeGeometry(geo),
-      new THREE.LineBasicMaterial({ color: 0x8b5cf6, transparent: true, opacity: 0.03 })
+      new THREE.LineBasicMaterial({ color: 0x8b5cf6, transparent: true, opacity: 0.02 })
     );
     this.scene.add(wire);
   },
@@ -206,9 +225,9 @@ const Brain3D = {
 
   _mniToScene(mni) {
     return new THREE.Vector3(
-      mni[0] / 55 * 1.05,
-      mni[1] / 60 * 1.25,
-      mni[2] / 55 * 0.88
+      mni[0] / 55 * 1.07,
+      mni[1] / 60 * 1.3,
+      mni[2] / 55 * 1.0
     );
   },
 
