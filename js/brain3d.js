@@ -243,13 +243,14 @@ const Brain3D = {
     if (this.ezGlow) this.scene.remove(this.ezGlow);
 
     const pos = this._normToScene(coord.x, coord.y, coord.z, meta);
-    const radius = Math.max(0.08, Math.min(0.5, coord.sigma * 0.35));
+    // Small, precise core sized to the predicted spread
+    const radius = Math.max(0.03, Math.min(0.15, coord.sigma * 0.1));
 
-    const coreGeo = new THREE.SphereGeometry(radius, 24, 16);
+    const coreGeo = new THREE.SphereGeometry(radius, 20, 14);
     const coreMat = new THREE.MeshBasicMaterial({
-      color: 0xff3300,
+      color: 0xff2200,
       transparent: true,
-      opacity: 0.92,
+      opacity: 0.0,
       depthTest: false,
     });
     this.ezHotspot = new THREE.Mesh(coreGeo, coreMat);
@@ -257,13 +258,13 @@ const Brain3D = {
     this.ezHotspot.renderOrder = 999;
     this.scene.add(this.ezHotspot);
 
-    const glowGeo = new THREE.SphereGeometry(radius * 3, 16, 12);
+    // Soft glow aura around the core
+    const glowGeo = new THREE.SphereGeometry(radius * 2.5, 16, 12);
     const glowMat = new THREE.MeshBasicMaterial({
       color: 0xff4400,
       transparent: true,
-      opacity: 0.18,
+      opacity: 0.0,
       depthTest: false,
-      side: THREE.BackSide,
     });
     this.ezGlow = new THREE.Mesh(glowGeo, glowMat);
     this.ezGlow.position.copy(pos);
@@ -281,11 +282,7 @@ const Brain3D = {
   },
 
   updateEZProgress(step, totalSteps) {
-    if (this.ezHotspot) {
-      const p = step / totalSteps;
-      this.ezHotspot.material.emissiveIntensity = 0.5 + p * 2.0;
-      this.ezGlow.material.opacity = 0.04 + p * 0.12;
-    }
+    // Progress handled by pulse animation — no-op during optimization
   },
 
   _onClick(event) {
@@ -328,9 +325,20 @@ const Brain3D = {
     requestAnimationFrame(() => this._animate());
 
     if (this.ezHotspot) {
-      const t = this.clock.getElapsedTime() * 3;
-      this.ezHotspot.material.emissiveIntensity = 1.5 + Math.sin(t) * 0.5;
-      this.ezGlow.scale.setScalar(1 + Math.sin(t * 0.7) * 0.1);
+      // Pulse: 0.7s on, 1.0s off (1.7s cycle)
+      const elapsed = this.clock.getElapsedTime();
+      const cycle = elapsed % 1.7;
+      let pulse;
+      if (cycle < 0.7) {
+        // On phase: smooth fade in/out within 0.7s
+        const t = cycle / 0.7;
+        pulse = Math.sin(t * Math.PI); // 0 -> 1 -> 0 over 0.7s
+      } else {
+        pulse = 0; // Off phase
+      }
+      this.ezHotspot.material.opacity = pulse * 0.85;
+      this.ezGlow.material.opacity = pulse * 0.25;
+      this.ezGlow.scale.setScalar(1 + pulse * 0.3);
     }
 
     this.controls.update();
