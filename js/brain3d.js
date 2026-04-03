@@ -1,6 +1,7 @@
 const Brain3D = {
   scene: null, camera: null, renderer: null, controls: null,
   brainMesh: null, electrodes: [], ezHotspot: null, ezGlow: null,
+  electrodeLabels: [],
   container: null, raycaster: null, mouse: null,
   tooltip: null, mniCoords: null, electrodeNames: null,
   clock: null,
@@ -179,7 +180,8 @@ const Brain3D = {
 
     const mat = new THREE.MeshPhysicalMaterial({
       vertexColors: true,
-      transparent: false,
+      transparent: true,
+      opacity: 0.72,
       roughness: 0.82,
       metalness: 0.02,
       side: THREE.DoubleSide,
@@ -204,7 +206,9 @@ const Brain3D = {
     this.electrodeNames = names;
 
     this.electrodes.forEach(e => this.scene.remove(e));
+    this.electrodeLabels.forEach(l => this.scene.remove(l));
     this.electrodes = [];
+    this.electrodeLabels = [];
 
     const geo = new THREE.SphereGeometry(0.04, 12, 8);
 
@@ -220,7 +224,40 @@ const Brain3D = {
       mesh.userData = { index: idx, name: names[idx], mni };
       this.scene.add(mesh);
       this.electrodes.push(mesh);
+
+      // Text label sprite
+      const label = this._makeLabel(names[idx]);
+      // Offset label outward from brain center
+      const dir = pos.clone().normalize();
+      label.position.copy(pos).add(dir.multiplyScalar(0.15));
+      this.scene.add(label);
+      this.electrodeLabels.push(label);
     });
+  },
+
+  _makeLabel(text) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 128;
+    canvas.height = 32;
+    ctx.font = 'bold 18px Inter, sans-serif';
+    ctx.fillStyle = '#c4b5fd';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 64, 16);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;
+    const mat = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      opacity: 0.85,
+      depthTest: false,
+      sizeAttenuation: true,
+    });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(0.4, 0.1, 1);
+    return sprite;
   },
 
   _mniToScene(mni) {
@@ -243,14 +280,14 @@ const Brain3D = {
     if (this.ezGlow) this.scene.remove(this.ezGlow);
 
     const pos = this._normToScene(coord.x, coord.y, coord.z, meta);
-    // Small, precise core sized to the predicted spread
-    const radius = Math.max(0.03, Math.min(0.15, coord.sigma * 0.1));
+    const radius = Math.max(0.03, Math.min(0.12, coord.sigma * 0.08));
 
+    // Inner core — always visible, bright, embedded inside the brain
     const coreGeo = new THREE.SphereGeometry(radius, 20, 14);
     const coreMat = new THREE.MeshBasicMaterial({
-      color: 0xff2200,
+      color: 0xff3300,
       transparent: true,
-      opacity: 0.0,
+      opacity: 0.9,
       depthTest: false,
     });
     this.ezHotspot = new THREE.Mesh(coreGeo, coreMat);
@@ -258,8 +295,8 @@ const Brain3D = {
     this.ezHotspot.renderOrder = 999;
     this.scene.add(this.ezHotspot);
 
-    // Soft glow aura around the core
-    const glowGeo = new THREE.SphereGeometry(radius * 2.5, 16, 12);
+    // Pulsing glow aura around the core
+    const glowGeo = new THREE.SphereGeometry(radius * 3, 16, 12);
     const glowMat = new THREE.MeshBasicMaterial({
       color: 0xff4400,
       transparent: true,
@@ -325,20 +362,21 @@ const Brain3D = {
     requestAnimationFrame(() => this._animate());
 
     if (this.ezHotspot) {
-      // Pulse: 0.7s on, 1.0s off (1.7s cycle)
+      // Core always visible; glow pulses: 0.7s on, 1.0s off
       const elapsed = this.clock.getElapsedTime();
       const cycle = elapsed % 1.7;
       let pulse;
       if (cycle < 0.7) {
-        // On phase: smooth fade in/out within 0.7s
         const t = cycle / 0.7;
-        pulse = Math.sin(t * Math.PI); // 0 -> 1 -> 0 over 0.7s
+        pulse = Math.sin(t * Math.PI);
       } else {
-        pulse = 0; // Off phase
+        pulse = 0;
       }
-      this.ezHotspot.material.opacity = pulse * 0.85;
-      this.ezGlow.material.opacity = pulse * 0.25;
-      this.ezGlow.scale.setScalar(1 + pulse * 0.3);
+      // Core stays bright, subtle brightness variation
+      this.ezHotspot.material.opacity = 0.85 + pulse * 0.15;
+      // Glow aura pulses in and out
+      this.ezGlow.material.opacity = pulse * 0.3;
+      this.ezGlow.scale.setScalar(1 + pulse * 0.4);
     }
 
     this.controls.update();
