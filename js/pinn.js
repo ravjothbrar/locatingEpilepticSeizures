@@ -115,7 +115,7 @@ const PINN = {
 
     const optimizer = tf.train.adam(0.01);
     const hhHistory = [];
-    const nSteps = 20; // 20 steps is sufficient — convergence plateaus after ~15
+    const nSteps = 40;
 
     for (let step = 0; step < nSteps; step++) {
       const lossVal = optimizer.minimize(() => {
@@ -134,9 +134,8 @@ const PINN = {
       hhHistory.push(lv);
       lossVal.dispose();
 
-      // Yield to UI every 5 steps instead of every step
-      if (onStep && step % 5 === 0) {
-        await onStep(step, lv);
+      if (onStep) {
+        await onStep(step, lv, nSteps);
         await tf.nextFrame();
       }
     }

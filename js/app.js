@@ -132,31 +132,20 @@ const App = {
 
   // === ASCII Art ===
   _initASCII() {
-    const brain = [
-      '            _---~~(~~-_.        ',
-      '          _{        )   )       ',
-      '        ,   ) -~~- ( ,-` )_     ',
-      '       (  `-,_..`., )-- `_,)    ',
-      '      ( ` _)  (  -~( -_ `,  }  ',
-      '      (_-  _  ~_-~~~~`,  ,`)    ',
-      '        `~ -^(    __;-,((determine))     ',
-      '              ~~~~ {_ -_(())    ',
-      '                     `\\  }     ',
-      '                       \\{      ',
-    ];
-    // Cleaner brain profile ASCII
     const brainArt = [
-      '         __.--~~--..__         ',
-      '     _-~~   ~-_  _-~  ~~-_    ',
-      '   _~  /~~~~\\  ~~  /~~~~\\ ~_  ',
-      '  {   {    _ \\    / _    }  } ',
-      '  |   \\ .~ ~-.\\  /.-~ ~. /  | ',
-      '   \\   ~(  EZ  )( PINN )~  /  ',
-      '    \\_.~ \\_  _/ ~\\_  _/ ~._/  ',
-      '     {  ~--`HH`----`  ~  }    ',
-      '      \\_   V m h n   _/      ',
-      '        ~~-_ Na K _-~~        ',
-      '            ~-----~           ',
+      '          _---~~---_           ',
+      '       _-~  _--_   ~-_        ',
+      '      / _--~ /  ~-_   \\       ',
+      '     / /  __/ \\   ~\\   \\      ',
+      '    | | /~  \\  \\~\\ |\\  |     ',
+      '    | |/ \\   ~-_\\ \\| \\ |     ',
+      '    |  \\  \\__/~  \\  \\ \\|     ',
+      '     \\  ~-_  __-~  / /       ',
+      '      \\    ~~  __-~ /        ',
+      '       ~-_  _-~  _-~         ',
+      '         _||  __/             ',
+      '        /  |_/                ',
+      '        \\__|                  ',
     ];
     const text = brainArt.join('\n');
 
@@ -339,11 +328,11 @@ const App = {
     this._updateStatus('Running PINN inference...');
 
     try {
-      const result = await PINN.infer(this.eegData, (step, loss) => {
-        const pct = ((step + 1) / 20 * 100).toFixed(0);
+      const result = await PINN.infer(this.eegData, (step, loss, totalSteps) => {
+        const pct = ((step + 1) / totalSteps * 100).toFixed(0);
         progressBar.style.width = pct + '%';
-        progressText.textContent = `Physics optimization: ${step + 1}/20 — HH residual: ${loss.toFixed(6)}`;
-        Brain3D.updateEZProgress(step, 20);
+        progressText.textContent = `Physics optimization: ${step + 1}/${totalSteps} — HH residual: ${loss.toFixed(6)}`;
+        Brain3D.updateEZProgress(step, totalSteps);
       });
 
       progress.style.display = 'none';
@@ -409,6 +398,20 @@ const App = {
       <div class="result-card">
         <h3>Nearest Electrodes</h3>
         <div id="chart-ranked"></div>
+      </div>
+
+      <div class="result-card summary-card">
+        <h3>Summary</h3>
+        <p class="summary-text">
+          The epileptic seizure was located at <strong>MNI (${c.mni_x.toFixed(1)}, ${c.mni_y.toFixed(1)}, ${c.mni_z.toFixed(1)}) mm</strong>
+          with a spread radius of <strong>&sigma; = ${c.sigma.toFixed(3)}</strong>
+          and a physical plausibility of <strong>${(result.physicsCompliance * 100).toFixed(1)}%</strong>.
+          ${result.physicsCompliance > 0.7
+            ? 'The prediction is consistent with Hodgkin-Huxley neuronal dynamics, suggesting a physically plausible seizure origin.'
+            : result.physicsCompliance > 0.4
+            ? 'The prediction shows moderate consistency with HH dynamics. Results should be interpreted with some caution.'
+            : 'The prediction shows low consistency with HH dynamics. Results should be interpreted with caution.'}
+        </p>
       </div>
     `;
 

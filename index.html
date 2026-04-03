@@ -8,6 +8,8 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 </head>
 <body>
 
@@ -139,8 +141,6 @@
             <div class="architecture-diagram">
               <div class="arch-block arch-input">EEG Input<br><span>18ch &times; 2560t</span></div>
               <div class="arch-arrow">&rarr;</div>
-              <div class="arch-block arch-pca">PCA<br><span>Decorrelate</span></div>
-              <div class="arch-arrow">&rarr;</div>
               <div class="arch-block arch-encoder">Encoder<br><span>3&times;128 Tanh</span></div>
               <div class="arch-arrow">&rarr;</div>
               <div class="arch-split">
@@ -156,19 +156,19 @@
             <div class="equation-list">
               <div class="equation">
                 <span class="eq-label">1. Membrane Voltage</span>
-                <code>C_m &middot; dV/dt = I - g_Na&middot;m&sup3;&middot;h&middot;(V-E_Na) - g_K&middot;n&sup4;&middot;(V-E_K) - g_L&middot;(V-E_L)</code>
+                <div class="katex-eq" data-eq="C_m \frac{dV}{dt} = I - g_{Na} m^3 h (V - E_{Na}) - g_K n^4 (V - E_K) - g_L (V - E_L)"></div>
               </div>
               <div class="equation">
                 <span class="eq-label">2. Sodium Activation (m)</span>
-                <code>dm/dt = &alpha;_m(V)&middot;(1-m) - &beta;_m(V)&middot;m</code>
+                <div class="katex-eq" data-eq="\frac{dm}{dt} = \alpha_m(V)(1 - m) - \beta_m(V) \cdot m"></div>
               </div>
               <div class="equation">
                 <span class="eq-label">3. Sodium Inactivation (h)</span>
-                <code>dh/dt = &alpha;_h(V)&middot;(1-h) - &beta;_h(V)&middot;h</code>
+                <div class="katex-eq" data-eq="\frac{dh}{dt} = \alpha_h(V)(1 - h) - \beta_h(V) \cdot h"></div>
               </div>
               <div class="equation">
                 <span class="eq-label">4. Potassium Activation (n)</span>
-                <code>dn/dt = &alpha;_n(V)&middot;(1-n) - &beta;_n(V)&middot;n</code>
+                <div class="katex-eq" data-eq="\frac{dn}{dt} = \alpha_n(V)(1 - n) - \beta_n(V) \cdot n"></div>
               </div>
             </div>
           </div>
@@ -179,7 +179,7 @@
             <div class="pipeline-steps">
               <div class="pipe-step">
                 <span class="pipe-num">1</span>
-                <div><strong>PCA Preprocessing</strong><br>18-channel EEG is decorrelated to match training data distribution.</div>
+                <div><strong>Normalisation</strong><br>18-channel EEG is z-score normalised per channel to match training data distribution.</div>
               </div>
               <div class="pipe-step">
                 <span class="pipe-num">2</span>
@@ -187,11 +187,7 @@
               </div>
               <div class="pipe-step">
                 <span class="pipe-num">3</span>
-                <div><strong>Physics Optimization (20 steps)</strong><br>HH variables are refined via gradient descent, minimising the residual of all 4 HH equations.</div>
-              </div>
-              <div class="pipe-step">
-                <span class="pipe-num">4</span>
-                <div><strong>PCA Interpretability</strong><br>128-dim latent space decomposed via PCA. Each PC correlated with HH variables.</div>
+                <div><strong>Physics Optimization (40 steps)</strong><br>HH variables are refined via gradient descent, minimising the residual of all 4 Hodgkin-Huxley equations to improve physical plausibility.</div>
               </div>
             </div>
           </div>
@@ -228,6 +224,21 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.min.js"></script>
+
+  <!-- Render KaTeX equations -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const renderEqs = () => {
+        document.querySelectorAll('.katex-eq').forEach(el => {
+          if (el.dataset.eq && !el.hasChildNodes()) {
+            katex.render(el.dataset.eq, el, { displayMode: true, throwOnError: false });
+          }
+        });
+      };
+      if (typeof katex !== 'undefined') renderEqs();
+      else document.querySelector('script[src*="katex"]').addEventListener('load', renderEqs);
+    });
+  </script>
 
   <!-- Application -->
   <script src="js/hodgkin-huxley.js"></script>

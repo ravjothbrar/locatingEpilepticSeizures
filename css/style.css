@@ -480,6 +480,28 @@ button.active { background: var(--green); color: #000; border-color: var(--green
 .compliance-text { font-size: 12px; margin-bottom: 4px; }
 .compliance-detail { font-size: 10px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
 
+/* === Summary === */
+.summary-card {
+  border-color: rgba(139, 92, 246, 0.3);
+  background: var(--gradient-subtle);
+}
+
+.summary-text {
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text-dim);
+}
+
+.summary-text strong {
+  color: var(--text);
+}
+
+/* === KaTeX Equations === */
+.katex-eq .katex {
+  font-size: 1.05em;
+  color: var(--text);
+}
+
 /* === PCA Insights === */
 .insights-container { margin-bottom: 14px; }
 
