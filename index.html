@@ -37,17 +37,50 @@
           Uses brain thermodynamics to rule out impossible places where the seizure originated, increasing accuracy
         </div>
       </div>
-      <div class="welcome-hint">Click anywhere outside to begin</div>
+      <div class="welcome-hint" id="welcome-hint">Click anywhere outside to begin</div>
+    </div>
+  </div>
+
+  <!-- Gesture Guide Popup -->
+  <div id="gesture-overlay" class="gesture-overlay hidden">
+    <div class="gesture-card">
+      <button id="gesture-close" class="gesture-close" title="Close">&#x2715;</button>
+      <h3>Hand Gesture Controls</h3>
+      <p class="gesture-subtitle">Mouse controls remain active — gestures and mouse work together.</p>
+      <div class="gesture-list">
+        <div class="gesture-item">
+          <div class="gesture-icon">&#x1F90C;</div>
+          <div class="gesture-desc"><strong>Pinch + Move</strong><br>Pan the brain left, right, up or down</div>
+        </div>
+        <div class="gesture-item">
+          <div class="gesture-icon">&#x1F450;</div>
+          <div class="gesture-desc"><strong>Two Hands Apart</strong><br>Zoom in (spread palms)</div>
+        </div>
+        <div class="gesture-item">
+          <div class="gesture-icon">&#x1F932;</div>
+          <div class="gesture-desc"><strong>Two Hands Together</strong><br>Zoom out (bring palms close)</div>
+        </div>
+        <div class="gesture-item">
+          <div class="gesture-icon">&#x270A;</div>
+          <div class="gesture-desc"><strong>Fist</strong><br>Reset view to default position</div>
+        </div>
+      </div>
     </div>
   </div>
 
   <!-- Header -->
   <header class="header">
     <div class="header-left">
-      <pre class="header-ascii" aria-hidden="true" id="header-ascii-art"></pre>
+      <div class="header-ascii-wrap">
+        <pre class="header-ascii" aria-hidden="true" id="header-ascii-art"></pre>
+      </div>
       <h1>NeuroLocate <span>PINN Seizure Detection</span></h1>
     </div>
     <div class="header-controls">
+      <a href="https://ravjothbrar.com/" target="_blank" class="created-by header-created-by">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Ravjoth Brar
+      </a>
       <label class="file-label">
         Upload EEG
         <input type="file" id="file-input" accept=".csv">
@@ -208,14 +241,9 @@
       </div>
 
       <div class="footer">
-        <a href="https://ravjothbrar.com/" target="_blank" class="created-by">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          Created by Ravjoth Brar
-        </a>
-        <span class="footer-sep">&middot;</span>
         Research only — not a medical device.
         Built with <a href="https://www.tensorflow.org/js" target="_blank">TF.js</a>,
-        <a href="https://threejs.org" target="_blank">Three.js</a> &
+        <a href="https://threejs.org" target="_blank">Three.js</a> &amp;
         Hodgkin-Huxley PDE constraints.
       </div>
     </div>

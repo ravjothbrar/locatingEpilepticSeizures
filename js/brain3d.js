@@ -1,10 +1,10 @@
 const Brain3D = {
   scene: null, camera: null, renderer: null, controls: null,
   brainMesh: null, headMesh: null, electrodes: [], ezHotspot: null, ezGlow: null,
-  electrodeLabels: [], floatingLabels: [],
+  electrodeLabels: [],
   container: null, raycaster: null, mouse: null,
   tooltip: null, mniCoords: null, electrodeNames: null,
-  clock: null,
+  clock: null, _ezDepthRatio: 0,
 
   init(containerId) {
     this.container = document.getElementById(containerId);
@@ -43,7 +43,6 @@ const Brain3D = {
 
     this._createBrain();
     this._createHead();
-    this._createFloatingLabels();
 
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
@@ -160,7 +159,7 @@ const Brain3D = {
       roughness: 0.82,
       metalness: 0.02,
       side: THREE.DoubleSide,
-      depthWrite: true,
+      depthWrite: false,
       clearcoat: 0.08,
       clearcoatRoughness: 0.85,
     });
@@ -175,116 +174,93 @@ const Brain3D = {
     this.scene.add(wire);
   },
 
-  // --- Transparent head outline ---
+  // --- Transparent head outline (skull + neck + shoulders) ---
   _createHead() {
-    const geo = new THREE.SphereGeometry(1, 64, 48);
-    const pos = geo.attributes.position;
-
-    for (let i = 0; i < pos.count; i++) {
-      let x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-
-      // Skull shape: slightly larger than brain, rounder
-      x *= 1.22;
-      y *= 1.45;
-      z *= 1.15;
-
-      // Forehead: bulges forward and up
-      const front = Math.max(0, (y - 0.6) / 0.8);
-      z += front * 0.15;
-
-      // Chin/jaw: extends downward at front
-      if (z < -0.3 && y > 0) {
-        const jawFactor = Math.max(0, -z - 0.3) * Math.max(0, y) * 0.8;
-        z -= jawFactor * 0.6;
-        x *= 1 - jawFactor * 0.3;
-        y += jawFactor * 0.1;
-      }
-
-      // Narrow jaw
-      if (z < -0.5) {
-        const narrowFactor = Math.max(0, -z - 0.5) * 0.5;
-        x *= 1 - narrowFactor * 0.4;
-      }
-
-      // Chin point
-      if (z < -0.8 && y > 0.2) {
-        y += Math.max(0, -z - 0.8) * 0.3;
-      }
-
-      // Nose bump
-      if (y > 0.8 && z > -0.4 && z < 0.1 && Math.abs(x) < 0.15) {
-        const noseFactor = Math.exp(-x * x * 80) * Math.exp(-((z + 0.15) * (z + 0.15)) * 8);
-        y += noseFactor * 0.2;
-      }
-
-      // Back of head: rounder
-      if (y < -0.8) {
-        const backRound = Math.max(0, -y - 0.8) * 0.1;
-        y -= backRound;
-      }
-
-      // Neck: narrow cylinder below
-      if (z < -0.9) {
-        const neckFactor = Math.max(0, -z - 0.9) * 0.4;
-        x *= Math.max(0.3, 1 - neckFactor);
-        y *= Math.max(0.3, 1 - neckFactor * 0.7);
-      }
-
-      pos.setXYZ(i, x, y, z);
-    }
-
-    geo.computeVertexNormals();
-
-    const mat = new THREE.MeshPhysicalMaterial({
-      color: 0x8899bb,
+    const headMat = new THREE.MeshPhysicalMaterial({
+      color: 0x9aaac8,
       transparent: true,
-      opacity: 0.08,
-      roughness: 0.5,
-      metalness: 0.1,
+      opacity: 0.13,
+      roughness: 0.4,
+      metalness: 0.05,
       side: THREE.DoubleSide,
       depthWrite: false,
     });
-
-    this.headMesh = new THREE.Mesh(geo, mat);
-    this.scene.add(this.headMesh);
-
-    // Head outline wireframe
-    const wireGeo = new THREE.EdgesGeometry(geo, 15);
     const wireMat = new THREE.LineBasicMaterial({
-      color: 0x8899cc,
+      color: 0x99aadd,
       transparent: true,
-      opacity: 0.12,
+      opacity: 0.22,
     });
-    const wireframe = new THREE.LineSegments(wireGeo, wireMat);
-    this.scene.add(wireframe);
-    this._headWire = wireframe;
+
+    // ── 1. Skull ──────────────────────────────────────────────────────────────
+    const skullGeo = new THREE.SphereGeometry(1, 64, 48);
+    const sp = skullGeo.attributes.position;
+    for (let i = 0; i < sp.count; i++) {
+      let x = sp.getX(i), y = sp.getY(i), z = sp.getZ(i);
+
+      x *= 1.22; y *= 1.45; z *= 1.15;
+
+      // Forehead bulge (anterior+superior)
+      const front = Math.max(0, (y - 0.55) / 0.8);
+      z += front * 0.14;
+
+      // Chin/jaw
+      if (z < -0.28 && y > 0.1) {
+        const jf = Math.max(0, -z - 0.28) * Math.max(0, y - 0.1) * 0.7;
+        z -= jf * 0.55; x *= 1 - jf * 0.28;
+      }
+      if (z < -0.55) { const nf = Math.max(0, -z - 0.55) * 0.5; x *= 1 - nf * 0.38; }
+      if (z < -0.85 && y > 0.15) { y += Math.max(0, -z - 0.85) * 0.25; }
+
+      // Nose bump (anterior, slightly inferior)
+      if (y > 0.82 && z > -0.42 && z < 0.08 && Math.abs(x) < 0.14) {
+        const nf = Math.exp(-x * x * 90) * Math.exp(-((z + 0.18) * (z + 0.18)) * 9);
+        y += nf * 0.22;
+      }
+
+      // Posterior round
+      if (y < -0.82) { y -= Math.max(0, -y - 0.82) * 0.08; }
+
+      sp.setXYZ(i, x, y, z);
+    }
+    skullGeo.computeVertexNormals();
+
+    this.headMesh = new THREE.Mesh(skullGeo, headMat);
+    this.scene.add(this.headMesh);
+    this.scene.add(new THREE.LineSegments(new THREE.EdgesGeometry(skullGeo, 18), wireMat.clone()));
+
+    // ── 2. Neck ───────────────────────────────────────────────────────────────
+    // Extends in -Z (inferior) from bottom of skull, slightly anterior (y>0)
+    const neckGeo = new THREE.CylinderGeometry(0.20, 0.24, 0.55, 20);
+    neckGeo.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI / 2));
+    // Position: inferior to skull base, slightly forward
+    const neck = new THREE.Mesh(neckGeo, headMat.clone());
+    neck.position.set(0, 0.12, -1.22);
+    this.scene.add(neck);
+    const neckWire = new THREE.LineSegments(new THREE.EdgesGeometry(neckGeo, 25), wireMat.clone());
+    neckWire.position.copy(neck.position);
+    this.scene.add(neckWire);
+
+    // ── 3. Shoulders (truncated cone — wider at bottom) ────────────────────
+    const shoulderGeo = new THREE.CylinderGeometry(0.72, 0.88, 0.28, 24);
+    shoulderGeo.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI / 2));
+    const shoulder = new THREE.Mesh(shoulderGeo, headMat.clone());
+    shoulder.position.set(0, 0.04, -1.64);
+    this.scene.add(shoulder);
+    const shoulderWire = new THREE.LineSegments(new THREE.EdgesGeometry(shoulderGeo, 20), wireMat.clone());
+    shoulderWire.position.copy(shoulder.position);
+    this.scene.add(shoulderWire);
+
+    // ── 4. Chest cap (flat disc at base of shoulders) ─────────────────────
+    const chestGeo = new THREE.CylinderGeometry(0.88, 0.92, 0.08, 24);
+    chestGeo.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI / 2));
+    const chest = new THREE.Mesh(chestGeo, headMat.clone());
+    chest.position.set(0, 0.02, -1.84);
+    this.scene.add(chest);
+    const chestWire = new THREE.LineSegments(new THREE.EdgesGeometry(chestGeo, 20), wireMat.clone());
+    chestWire.position.copy(chest.position);
+    this.scene.add(chestWire);
   },
 
-  // --- Floating labels inside brain ---
-  _createFloatingLabels() {
-    const labels = [
-      { text: 'Na+', pos: [0.3, 0.4, 0.3] },
-      { text: 'K+', pos: [-0.35, -0.3, 0.2] },
-      { text: 'dV/dt', pos: [0.0, 0.2, 0.5] },
-      { text: 'Ca2+', pos: [-0.2, 0.5, -0.1] },
-      { text: 'Cl-', pos: [0.4, -0.4, 0.0] },
-      { text: 'HH', pos: [0.0, -0.5, 0.3] },
-      { text: 'gNa', pos: [-0.4, 0.2, 0.4] },
-      { text: 'gK', pos: [0.3, -0.1, -0.2] },
-      { text: 'I_m', pos: [0.15, 0.6, 0.1] },
-      { text: 'dm/dt', pos: [-0.3, -0.1, 0.45] },
-      { text: 'E_Na', pos: [0.25, -0.5, 0.15] },
-      { text: 'E_K', pos: [-0.15, 0.35, -0.15] },
-    ];
-
-    labels.forEach(l => {
-      const sprite = this._makeLabel(l.text, '#ffffff', 0.3);
-      sprite.position.set(l.pos[0], l.pos[1], l.pos[2]);
-      sprite.userData = { basePos: l.pos.slice(), drift: Math.random() * Math.PI * 2 };
-      this.scene.add(sprite);
-      this.floatingLabels.push(sprite);
-    });
-  },
 
   setElectrodes(mniCoords, names) {
     this.mniCoords = mniCoords;
@@ -365,24 +341,46 @@ const Brain3D = {
     const pos = this._normToScene(coord.x, coord.y, coord.z, meta);
     const radius = Math.max(0.03, Math.min(0.12, coord.sigma * 0.08));
 
-    // 3D sphere core — uses Phong material for proper 3D shading
+    // Compute depth: cast ray from sphere outward, measure distance to brain surface
+    // depthRatio = 0 means at surface, 1 means very deep inside
+    this._ezDepthRatio = 0;
+    if (this.brainMesh) {
+      const outDir = pos.clone().normalize();
+      if (outDir.length() < 0.001) outDir.set(0, 0, 1);
+      const raycaster = new THREE.Raycaster(pos, outDir);
+      const hits = raycaster.intersectObject(this.brainMesh, false);
+      if (hits.length > 0) {
+        // Distance from sphere to brain surface along outward ray
+        const distToSurface = hits[0].distance;
+        // Brain surface radius is roughly 1.0-1.4 scene units from center
+        this._ezDepthRatio = Math.min(1, distToSurface / 1.3);
+      }
+    }
+
+    // Base opacity/emissive scaled by depth: deeper = dimmer at rest, brighter on pulse
+    const depthR = this._ezDepthRatio;
+    const baseOpacity = 0.82 - depthR * 0.60;   // 0.82 surface → 0.22 deep
+    const baseEmissive = 0.75 - depthR * 0.58;   // 0.75 surface → 0.17 deep
+
+    // 3D sphere core
     const coreGeo = new THREE.SphereGeometry(radius, 24, 18);
     const coreMat = new THREE.MeshPhongMaterial({
       color: 0xff2200,
       emissive: 0xff3300,
-      emissiveIntensity: 0.8,
+      emissiveIntensity: baseEmissive,
       shininess: 60,
       transparent: true,
-      opacity: 0.9,
+      opacity: baseOpacity,
       depthTest: false,
     });
     this.ezHotspot = new THREE.Mesh(coreGeo, coreMat);
     this.ezHotspot.position.copy(pos);
-    this.ezHotspot.renderOrder = 999;
+    this.ezHotspot.renderOrder = 10;
     this.scene.add(this.ezHotspot);
 
-    // Pulsing glow aura
-    const glowGeo = new THREE.SphereGeometry(radius * 3, 16, 12);
+    // Pulsing glow aura — slightly larger at depth to simulate light scattering through tissue
+    const glowRadius = radius * (3 + depthR * 1.5);
+    const glowGeo = new THREE.SphereGeometry(glowRadius, 16, 12);
     const glowMat = new THREE.MeshBasicMaterial({
       color: 0xff4400,
       transparent: true,
@@ -391,7 +389,7 @@ const Brain3D = {
     });
     this.ezGlow = new THREE.Mesh(glowGeo, glowMat);
     this.ezGlow.position.copy(pos);
-    this.ezGlow.renderOrder = 998;
+    this.ezGlow.renderOrder = 9;
     this.scene.add(this.ezGlow);
 
     this.electrodes.forEach(el => {
@@ -447,29 +445,24 @@ const Brain3D = {
     const elapsed = this.clock.getElapsedTime();
 
     if (this.ezHotspot) {
-      // Core always visible; glow pulses: 0.7s on, 1.0s off
-      const cycle = elapsed % 1.7;
-      let pulse;
-      if (cycle < 0.7) {
-        const t = cycle / 0.7;
-        pulse = Math.sin(t * Math.PI);
-      } else {
-        pulse = 0;
-      }
-      this.ezHotspot.material.emissiveIntensity = 0.6 + pulse * 0.8;
-      this.ezHotspot.material.opacity = 0.85 + pulse * 0.15;
-      this.ezGlow.material.opacity = pulse * 0.3;
-      this.ezGlow.scale.setScalar(1 + pulse * 0.4);
-    }
+      // Depth-based pulsing: deeper = dimmer at rest but bigger pulse
+      const depth = this._ezDepthRatio;
+      const baseOpacity  = 0.82 - depth * 0.60;
+      const baseEmissive = 0.75 - depth * 0.58;
+      const pulseAmp     = 0.18 + depth * 0.65; // bigger pulse for deeper sphere
 
-    // Floating labels drift gently
-    this.floatingLabels.forEach(sprite => {
-      const d = sprite.userData;
-      sprite.position.x = d.basePos[0] + Math.sin(elapsed * 0.3 + d.drift) * 0.03;
-      sprite.position.y = d.basePos[1] + Math.cos(elapsed * 0.25 + d.drift * 1.3) * 0.03;
-      sprite.position.z = d.basePos[2] + Math.sin(elapsed * 0.2 + d.drift * 0.7) * 0.02;
-      sprite.material.opacity = 0.18 + Math.sin(elapsed * 0.5 + d.drift) * 0.08;
-    });
+      const cycle = elapsed % 1.7;
+      let pulse = 0;
+      if (cycle < 0.7) {
+        pulse = Math.sin((cycle / 0.7) * Math.PI);
+      }
+
+      this.ezHotspot.material.emissiveIntensity = baseEmissive + pulse * (1.2 + depth * 0.6);
+      this.ezHotspot.material.opacity = Math.min(1, baseOpacity + pulse * pulseAmp);
+      // Glow aura: subtle at surface, more visible when deep (light through tissue)
+      this.ezGlow.material.opacity = (depth * 0.08) + pulse * (0.22 + depth * 0.18);
+      this.ezGlow.scale.setScalar(1 + pulse * 0.45);
+    }
 
     this.controls.update();
     this.renderer.render(this.scene, this.camera);

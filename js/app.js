@@ -78,6 +78,18 @@ const App = {
     document.getElementById('btn-hands').addEventListener('click', async () => {
       const active = await HandTracker.toggle();
       document.getElementById('btn-hands').classList.toggle('active', active);
+      if (active) {
+        // Show gesture guide popup when activating gesture mode
+        const overlay = document.getElementById('gesture-overlay');
+        if (overlay) overlay.classList.remove('hidden');
+      }
+    });
+
+    const gestureOverlay = document.getElementById('gesture-overlay');
+    const gestureClose = document.getElementById('gesture-close');
+    if (gestureClose) gestureClose.addEventListener('click', () => gestureOverlay.classList.add('hidden'));
+    if (gestureOverlay) gestureOverlay.addEventListener('click', (e) => {
+      if (e.target === gestureOverlay) gestureOverlay.classList.add('hidden');
     });
     document.getElementById('btn-tutorial').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -130,8 +142,10 @@ const App = {
   _showWelcome() {
     const overlay = document.getElementById('welcome-overlay');
     overlay.classList.remove('hidden');
-    if (this._welcomeTimer) clearTimeout(this._welcomeTimer);
-    this._welcomeTimer = setTimeout(() => this._dismissWelcome(), 5000);
+    // No auto-dismiss when user manually opens via '?' — stays until clicked off
+    if (this._welcomeTimer) { clearTimeout(this._welcomeTimer); this._welcomeTimer = null; }
+    const hint = document.getElementById('welcome-hint');
+    if (hint) hint.textContent = 'Click anywhere outside to dismiss';
   },
 
   // === ASCII Art ===
@@ -153,11 +167,62 @@ const App = {
     ];
     const text = brainArt.join('\n');
 
+    // Popup: full-size ASCII art with ion channel labels
     const popup = document.getElementById('ascii-art');
-    if (popup) popup.textContent = text;
+    if (popup) {
+      popup.style.position = 'relative';
+      popup.textContent = '';
+      const pre = document.createElement('pre');
+      pre.style.cssText = 'margin:0;white-space:pre;display:inline-block';
+      pre.textContent = text;
+      popup.appendChild(pre);
 
+      const popupLabels = [
+        { text: 'dV/dt', top: '-18px', left: '50%', transform: 'translateX(-50%)' },
+        { text: 'Na\u207A', top: '10%', right: '-48px' },
+        { text: 'K\u207A',  top: '38%', left: '-42px' },
+        { text: 'gNa', top: '55%', right: '-46px' },
+        { text: 'Ca\u00B2\u207A', top: '18%', left: '-52px' },
+        { text: 'HH',  bottom: '22%', left: '18%' },
+        { text: 'I\u2098',  bottom: '10%', right: '15%' },
+        { text: 'E\u2099\u2090', bottom: '25%', right: '-42px' },
+      ];
+      popupLabels.forEach(l => {
+        const span = document.createElement('span');
+        span.className = 'ascii-label';
+        span.textContent = l.text;
+        span.style.top    = l.top    || '';
+        span.style.bottom = l.bottom || '';
+        span.style.left   = l.left   || '';
+        span.style.right  = l.right  || '';
+        if (l.transform) span.style.transform = l.transform;
+        popup.appendChild(span);
+      });
+    }
+
+    // Header: compact ASCII art with minimal labels
     const header = document.getElementById('header-ascii-art');
-    if (header) header.textContent = text;
+    if (header) {
+      header.textContent = text;
+      const wrap = header.closest('.header-ascii-wrap');
+      if (wrap) {
+        const headerLabels = [
+          { text: 'Na\u207A', top: '12%', right: '-24px' },
+          { text: 'K\u207A',  top: '42%', left: '-22px' },
+          { text: 'HH',  bottom: '18%', left: '30%' },
+        ];
+        headerLabels.forEach(l => {
+          const span = document.createElement('span');
+          span.className = 'ascii-label ascii-label-sm';
+          span.textContent = l.text;
+          span.style.top    = l.top    || '';
+          span.style.bottom = l.bottom || '';
+          span.style.left   = l.left   || '';
+          span.style.right  = l.right  || '';
+          wrap.appendChild(span);
+        });
+      }
+    }
   },
 
   // === Sample Patient Datasets ===

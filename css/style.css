@@ -86,6 +86,8 @@ body {
   animation: asciiFlicker 4s ease infinite;
   user-select: none;
   text-shadow: 0 0 12px rgba(255,255,255,0.3);
+  position: relative;
+  display: inline-block;
 }
 
 .welcome-card h2 {
@@ -791,12 +793,12 @@ button.active { background: var(--green); color: #000; border-color: var(--green
   border-color: var(--accent);
 }
 
-/* === Created By Button === */
+/* === Created By Button (header) === */
 .created-by {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 14px;
+  gap: 5px;
+  padding: 5px 11px;
   border: 1.5px solid var(--accent);
   border-radius: 20px;
   color: var(--accent-bright);
@@ -804,7 +806,7 @@ button.active { background: var(--green); color: #000; border-color: var(--green
   font-size: 11px;
   font-weight: 600;
   transition: all 0.2s;
-  margin-right: 8px;
+  white-space: nowrap;
 }
 
 .created-by:hover {
@@ -813,14 +815,140 @@ button.active { background: var(--green); color: #000; border-color: var(--green
   border-color: var(--accent-bright);
 }
 
-.created-by svg {
+.created-by svg { flex-shrink: 0; }
+
+.footer-sep { margin: 0 6px; opacity: 0.4; }
+
+/* === ASCII label overlay === */
+.header-ascii-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.ascii-label {
+  position: absolute;
+  color: #ffffff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  font-weight: 600;
+  opacity: 0.72;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 0 6px rgba(255,255,255,0.4);
+  letter-spacing: 0.3px;
+}
+
+.ascii-label-sm {
+  font-size: 6px;
+  opacity: 0.6;
+}
+
+/* Popup ASCII labels: slightly larger */
+.welcome-ascii .ascii-label {
+  font-size: 10px;
+  opacity: 0.75;
+}
+
+/* === Gesture Overlay === */
+.gesture-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 4, 10, 0.7);
+  backdrop-filter: blur(6px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease;
+}
+
+.gesture-overlay.hidden { display: none; }
+
+.gesture-card {
+  background: var(--surface);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 16px;
+  padding: 32px 40px 28px;
+  max-width: 480px;
+  width: 92%;
+  position: relative;
+  animation: slideUp 0.35s ease;
+  box-shadow: 0 0 60px rgba(139, 92, 246, 0.2), 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.gesture-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--gradient);
+  border-radius: 16px 16px 0 0;
+}
+
+.gesture-card h3 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  background: var(--gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gesture-subtitle {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 22px;
+  line-height: 1.5;
+}
+
+.gesture-close {
+  position: absolute;
+  top: 14px; right: 16px;
+  width: 28px; height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface2);
+  border-color: var(--border);
+  color: var(--text-dim);
+}
+
+.gesture-close:hover { color: var(--text); background: var(--border); }
+
+.gesture-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.gesture-item {
+  background: var(--gradient-subtle);
+  border: 1px solid rgba(139,92,246,0.15);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  transition: border-color 0.2s;
+}
+
+.gesture-item:hover { border-color: rgba(139,92,246,0.35); }
+
+.gesture-icon {
+  font-size: 24px;
+  line-height: 1;
   flex-shrink: 0;
 }
 
-.footer-sep {
-  margin: 0 6px;
-  opacity: 0.4;
+.gesture-desc {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
 }
+
+.gesture-desc strong { color: var(--text); display: block; margin-bottom: 2px; }
 
 /* === Light Mode === */
 body.light-mode {
@@ -939,6 +1067,25 @@ body.light-mode #btn-theme:hover {
 
 body.light-mode .created-by:hover {
   background: rgba(139, 92, 246, 0.08);
+}
+
+body.light-mode .gesture-card {
+  background: #ffffff;
+  box-shadow: 0 0 40px rgba(139, 92, 246, 0.08), 0 20px 40px rgba(0,0,0,0.1);
+}
+
+body.light-mode .gesture-overlay {
+  background: rgba(245, 243, 250, 0.8);
+}
+
+body.light-mode .gesture-item {
+  background: rgba(139, 92, 246, 0.05);
+  border-color: rgba(139, 92, 246, 0.12);
+}
+
+body.light-mode .ascii-label {
+  color: var(--accent);
+  text-shadow: none;
 }
 
 body.light-mode .progress-container {
