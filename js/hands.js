@@ -7,9 +7,6 @@ const HandTracker = {
   active: false,
   prevPinch: null,
   prevSpread: null,
-  azimuth: 0,
-  elevation: 20,
-  distance: 4,
 
   async init() {
     this.video = document.createElement('video');
@@ -54,11 +51,12 @@ const HandTracker = {
     if (this.active) {
       await this.camera.start();
       if (this.canvas) this.canvas.style.display = 'block';
-      Brain3D.controls.enabled = false;
+      // Keep OrbitControls enabled — mouse continues to work in gesture mode
     } else {
       this.camera.stop();
       if (this.canvas) this.canvas.style.display = 'none';
-      Brain3D.controls.enabled = true;
+      this.prevPinch = null;
+      this.prevSpread = null;
     }
     return this.active;
   },
@@ -87,8 +85,6 @@ const HandTracker = {
       this._handleTwoHands(hands[0], hands[1]);
       this.prevPinch = null;
     }
-
-    Brain3D.setCamera(this.azimuth, this.elevation, this.distance);
   },
 
   _handleSingleHand(landmarks) {
@@ -98,37 +94,43 @@ const HandTracker = {
 
     if (pinchDist < 0.08) {
       const center = { x: (thumb.x + index.x) / 2, y: (thumb.y + index.y) / 2 };
-      if (this.prevPinch) {
-        const dx = (center.x - this.prevPinch.x) * 300;
-        const dy = (center.y - this.prevPinch.y) * 200;
-        this.azimuth += dx;
-        this.elevation = Math.max(-80, Math.min(80, this.elevation - dy));
+      if (this.prevPinch && Brain3D.controls) {
+        // Pan the brain by moving the orbit target
+        const dx = (center.x - this.prevPinch.x) * 3.5;
+        const dy = (center.y - this.prevPinch.y) * 3.5;
+        Brain3D.controls.target.x -= dx;
+        Brain3D.controls.target.y += dy; // invert Y: screen down = world down
+        Brain3D.controls.update();
       }
       this.prevPinch = center;
     } else {
       this.prevPinch = null;
     }
 
-    if (this._isFist(landmarks)) {
-      this.azimuth = 0;
-      this.elevation = 20;
-      this.distance = 4;
+    if (this._isFist(landmarks) && Brain3D.controls) {
+      Brain3D.controls.target.set(0, 0, 0);
+      Brain3D.controls.reset();
     }
   },
 
   _handleTwoHands(hand1, hand2) {
-    // Use palm centers (wrist=0 and middle finger MCP=9 midpoint)
     const palm1 = this._palmCenter(hand1);
     const palm2 = this._palmCenter(hand2);
-
-    // Horizontal distance between palms (x-axis spread)
     const spread = Math.abs(palm1.x - palm2.x);
 
     if (this.prevSpread !== null) {
       const delta = spread - this.prevSpread;
-      // Palms apart (spread increases) → zoom IN (decrease distance)
-      // Palms together (spread decreases) → zoom OUT (increase distance)
-      this.distance = Math.max(2, Math.min(8, this.distance - delta * 12));
+      // Zoom: palms apart → zoom in (decrease distance), palms together → zoom out
+      const cam = Brain3D.camera;
+      if (cam) {
+        const target = Brain3D.controls ? Brain3D.controls.target : new THREE.Vector3();
+        const dir = cam.position.clone().sub(target);
+        const currentDist = dir.length();
+        const newDist = Math.max(2, Math.min(8, currentDist - delta * 10));
+        dir.normalize().multiplyScalar(newDist);
+        cam.position.copy(target).add(dir);
+        if (Brain3D.controls) Brain3D.controls.update();
+      }
     }
     this.prevSpread = spread;
   },
