@@ -78,14 +78,15 @@ body {
 .welcome-ascii {
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
+  font-weight: 700;
   line-height: 1.2;
-  color: #f472b6;
+  color: #ff85cc;
   opacity: 0.7;
   white-space: pre;
   margin-bottom: 24px;
   animation: asciiFlicker 4s ease infinite;
   user-select: none;
-  text-shadow: 0 0 12px rgba(244,114,182,0.5);
+  text-shadow: 0 0 4px #ff85cc, 0 0 10px rgba(255,133,204,0.7), 0 0 22px rgba(255,133,204,0.35);
   position: relative;
   display: inline-block;
   transform: scaleX(1.07);
@@ -167,12 +168,13 @@ body {
 .header-ascii {
   font-family: 'JetBrains Mono', monospace;
   font-size: 7px;
+  font-weight: 700;
   line-height: 1.05;
-  color: #f472b6;
+  color: #ff85cc;
   opacity: 0.65;
   white-space: pre;
   user-select: none;
-  text-shadow: 0 0 6px rgba(244,114,182,0.45);
+  text-shadow: 0 0 3px #ff85cc, 0 0 8px rgba(255,133,204,0.65), 0 0 16px rgba(255,133,204,0.3);
   margin: 0;
   transform: scaleX(1.07);
   transform-origin: left center;
