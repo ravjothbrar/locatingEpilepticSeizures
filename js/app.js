@@ -150,75 +150,78 @@ const App = {
 
   // === ASCII Art ===
   _initASCII() {
+    // Wider/more horizontal brain; brainstem shifted right and more horizontal
     const brainArt = [
-      '       _---~~---_             ',
-      '     _-~  _--_   ~-_          ',
-      '    / _--~ /  ~-_   \\         ',
-      '   / /  __/ \\   ~\\   \\        ',
-      '  | | /~  \\  \\~\\ |\\  |       ',
-      '  | |/ \\   ~-_\\ \\| \\ |       ',
-      '  |  \\  \\__/~  \\  \\ \\|       ',
-      '   \\  ~-_  __-~  / /         ',
-      '    \\    ~~  __-~ /           ',
-      '     ~-_ __-~  _-~            ',
-      '        \\__  /~               ',
-      '           \\/ |               ',
-      '            \\__|              ',
+      '      ____---~~~---____         ',
+      '    _/    __----__    \\_        ',
+      '   / _---~  /  ~--_    \\       ',
+      '   /  /  __/  \\  ~-\\    \\      ',
+      '   | | /~  \\  \\~\\  |\\   |      ',
+      '   | |  \\  \\__/~  \\| \\  |      ',
+      '    \\  ~-_  __-~~  /  \\/       ',
+      '     \\____~~~  ___-~  /        ',
+      '               \\___/ \\___-_    ',
+      '                          \\_|  ',
     ];
     const text = brainArt.join('\n');
 
-    // Popup: full-size ASCII art with ion channel labels
+    // ── Popup: 12px JetBrains Mono ─────────────────────────────────────────
+    // char width ≈ 7.2 px, line height ≈ 14.4 px  →  positions (col*7.2, line*14.4)
     const popup = document.getElementById('ascii-art');
     if (popup) {
       popup.style.position = 'relative';
+      popup.style.overflow = 'visible';
       popup.textContent = '';
       const pre = document.createElement('pre');
       pre.style.cssText = 'margin:0;white-space:pre;display:inline-block';
       pre.textContent = text;
       popup.appendChild(pre);
 
+      // All 8 labels placed INSIDE the brain outline (col*7.2 px, line*14.4 px)
       const popupLabels = [
-        { text: 'dV/dt', top: '-18px', left: '50%', transform: 'translateX(-50%)' },
-        { text: 'Na\u207A', top: '10%', right: '-48px' },
-        { text: 'K\u207A',  top: '38%', left: '-42px' },
-        { text: 'gNa', top: '55%', right: '-46px' },
-        { text: 'Ca\u00B2\u207A', top: '18%', left: '-52px' },
-        { text: 'HH',  bottom: '22%', left: '18%' },
-        { text: 'I\u2098',  bottom: '10%', right: '15%' },
-        { text: 'E\u2099\u2090', bottom: '25%', right: '-42px' },
+        { text: 'dV/dt', top: '14px',  left: '94px'  },  // line1, col13 – top center
+        { text: 'Na\u207A',  top: '29px',  left: '151px' },  // line2, col21 – upper right
+        { text: 'Ca\u00B2\u207A', top: '29px', left: '36px'  },  // line2, col5  – upper left
+        { text: 'HH',   top: '43px',  left: '94px'  },  // line3, col13 – centre
+        { text: 'K\u207A',  top: '58px',  left: '36px'  },  // line4, col5  – mid left
+        { text: 'gNa',  top: '58px',  left: '144px' },  // line4, col20 – mid right
+        { text: 'I\u2098',  top: '72px',  left: '101px' },  // line5, col14 – low centre
+        { text: 'E\u2099\u2090', top: '86px', left: '50px'  },  // line6, col7  – lower left
       ];
       popupLabels.forEach(l => {
         const span = document.createElement('span');
         span.className = 'ascii-label';
         span.textContent = l.text;
-        span.style.top    = l.top    || '';
-        span.style.bottom = l.bottom || '';
-        span.style.left   = l.left   || '';
-        span.style.right  = l.right  || '';
-        if (l.transform) span.style.transform = l.transform;
+        span.style.top  = l.top;
+        span.style.left = l.left;
         popup.appendChild(span);
       });
     }
 
-    // Header: compact ASCII art with minimal labels
+    // ── Header: 7px JetBrains Mono ─────────────────────────────────────────
+    // char width ≈ 4.2 px, line height ≈ 7.35 px  →  positions (col*4.2, line*7.35)
     const header = document.getElementById('header-ascii-art');
     if (header) {
       header.textContent = text;
       const wrap = header.closest('.header-ascii-wrap');
       if (wrap) {
+        wrap.style.position = 'relative';
+        wrap.style.overflow = 'visible';
+        // 6 labels inside the brain
         const headerLabels = [
-          { text: 'Na\u207A', top: '12%', right: '-24px' },
-          { text: 'K\u207A',  top: '42%', left: '-22px' },
-          { text: 'HH',  bottom: '18%', left: '30%' },
+          { text: 'dV/dt', top: '7px',  left: '55px' },  // line1, col13
+          { text: 'Na\u207A',  top: '15px', left: '88px' },  // line2, col21
+          { text: 'HH',   top: '22px', left: '55px' },  // line3, col13
+          { text: 'K\u207A',  top: '29px', left: '21px' },  // line4, col5
+          { text: 'gNa',  top: '29px', left: '84px' },  // line4, col20
+          { text: 'I\u2098',  top: '37px', left: '59px' },  // line5, col14
         ];
         headerLabels.forEach(l => {
           const span = document.createElement('span');
           span.className = 'ascii-label ascii-label-sm';
           span.textContent = l.text;
-          span.style.top    = l.top    || '';
-          span.style.bottom = l.bottom || '';
-          span.style.left   = l.left   || '';
-          span.style.right  = l.right  || '';
+          span.style.top  = l.top;
+          span.style.left = l.left;
           wrap.appendChild(span);
         });
       }
@@ -426,10 +429,15 @@ const App = {
     const c = result.coord;
     const badge = result.physicsCompliance > 0.7 ? 'compliance-high' :
                   result.physicsCompliance > 0.4 ? 'compliance-med' : 'compliance-low';
+    const region = this._mniToRegion(c.mni_x, c.mni_y, c.mni_z);
 
     document.getElementById('results-content').innerHTML = `
       <div class="result-card">
         <h3>Predicted Epileptogenic Zone</h3>
+        <div class="region-badge">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2C8 2 4 5.5 4 10c0 3 1.5 5.5 4 7l1 5h6l1-5c2.5-1.5 4-4 4-7 0-4.5-4-8-8-8z"/></svg>
+          ${region}
+        </div>
         <div class="coord-grid">
           <div class="coord-item">
             <span class="coord-label">X (lateral)</span>
@@ -487,6 +495,28 @@ const App = {
     setTimeout(() => {
       Viz.renderRankedRegions(result.coord, this.metadata, 'chart-ranked');
     }, 50);
+  },
+
+  // === MNI → Brain Region ===
+  _mniToRegion(mx, my, mz) {
+    const ax = Math.abs(mx);
+    const side = mx >= 0 ? 'Right' : 'Left';
+
+    if (mz < -25 && my < -42) return 'Cerebellum';
+    if (ax < 14 && mz < -5 && my < -20) return 'Brainstem';
+    if (my < -70) return `${side} Occipital Lobe`;
+    if (ax > 14 && ax < 36 && my > -35 && my < 5 && mz < -18) return `${side} Hippocampus`;
+    if (ax > 14 && ax < 34 && my > -8 && my < 8 && mz < -12) return `${side} Amygdala`;
+    if (ax > 30 && my > -68 && my < 18 && mz < 16) return `${side} Temporal Lobe`;
+    if (ax < 16 && my > -28 && my < -2 && mz > -2 && mz < 22) return 'Thalamus';
+    if (ax > 8 && ax < 26 && my > -12 && my < 28 && mz > 2 && mz < 26) return `${side} Basal Ganglia`;
+    if (ax < 13 && my > -38 && my < 48 && mz > 5 && mz < 48) return 'Cingulate Cortex';
+    if (ax > 28 && ax < 52 && mz > -14 && mz < 24) return `${side} Insular Cortex`;
+    if (my < -12 && my > -70 && mz > 30) return `${side} Parietal Lobe`;
+    if (my > 22) return `${side} Frontal Lobe`;
+    if (my > -2 && mz > 42) return `${side} Motor / Premotor Cortex`;
+    if (my > -15 && mz > 22) return `${side} Central Region`;
+    return `${side} Temporal–Parietal Junction`;
   },
 
   _updateStatus(msg) {

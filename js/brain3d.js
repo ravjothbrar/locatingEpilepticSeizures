@@ -211,12 +211,6 @@ const Brain3D = {
       if (z < -0.55) { const nf = Math.max(0, -z - 0.55) * 0.5; x *= 1 - nf * 0.38; }
       if (z < -0.85 && y > 0.15) { y += Math.max(0, -z - 0.85) * 0.25; }
 
-      // Nose bump (anterior, slightly inferior)
-      if (y > 0.82 && z > -0.42 && z < 0.08 && Math.abs(x) < 0.14) {
-        const nf = Math.exp(-x * x * 90) * Math.exp(-((z + 0.18) * (z + 0.18)) * 9);
-        y += nf * 0.22;
-      }
-
       // Posterior round
       if (y < -0.82) { y -= Math.max(0, -y - 0.82) * 0.08; }
 
@@ -357,10 +351,10 @@ const Brain3D = {
       }
     }
 
-    // Base opacity/emissive scaled by depth: deeper = dimmer at rest, brighter on pulse
+    // Base opacity/emissive scaled by depth — then reduced 25% across the board
     const depthR = this._ezDepthRatio;
-    const baseOpacity = 0.82 - depthR * 0.60;   // 0.82 surface → 0.22 deep
-    const baseEmissive = 0.75 - depthR * 0.58;   // 0.75 surface → 0.17 deep
+    const baseOpacity = (0.82 - depthR * 0.60) * 0.75;   // surface→0.615, deep→0.165
+    const baseEmissive = (0.75 - depthR * 0.58) * 0.75;  // surface→0.563, deep→0.128
 
     // 3D sphere core
     const coreGeo = new THREE.SphereGeometry(radius, 24, 18);
@@ -447,9 +441,9 @@ const Brain3D = {
     if (this.ezHotspot) {
       // Depth-based pulsing: deeper = dimmer at rest but bigger pulse
       const depth = this._ezDepthRatio;
-      const baseOpacity  = 0.82 - depth * 0.60;
-      const baseEmissive = 0.75 - depth * 0.58;
-      const pulseAmp     = 0.18 + depth * 0.65; // bigger pulse for deeper sphere
+      const baseOpacity  = (0.82 - depth * 0.60) * 0.75;
+      const baseEmissive = (0.75 - depth * 0.58) * 0.75;
+      const pulseAmp     = (0.18 + depth * 0.65) * 0.75; // scaled 25% too
 
       const cycle = elapsed % 1.7;
       let pulse = 0;
