@@ -823,6 +823,7 @@ button.active { background: var(--green); color: #000; border-color: var(--green
 .header-ascii-wrap {
   position: relative;
   display: inline-flex;
+  overflow: visible;
 }
 
 .ascii-label {
@@ -830,23 +831,40 @@ button.active { background: var(--green); color: #000; border-color: var(--green
   color: #ffffff;
   font-family: 'JetBrains Mono', monospace;
   font-size: 8px;
-  font-weight: 600;
-  opacity: 0.72;
+  font-weight: 700;
+  opacity: 0.78;
   white-space: nowrap;
   pointer-events: none;
-  text-shadow: 0 0 6px rgba(255,255,255,0.4);
-  letter-spacing: 0.3px;
+  text-shadow: 0 0 8px rgba(139,92,246,0.6), 0 0 3px rgba(255,255,255,0.4);
+  letter-spacing: 0.2px;
+  line-height: 1;
 }
 
 .ascii-label-sm {
-  font-size: 6px;
-  opacity: 0.6;
+  font-size: 5.5px;
+  opacity: 0.65;
 }
 
-/* Popup ASCII labels: slightly larger */
+/* Popup ASCII labels: larger inside the bigger art */
 .welcome-ascii .ascii-label {
   font-size: 10px;
-  opacity: 0.75;
+  opacity: 0.82;
+}
+
+/* === Region Badge === */
+.region-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(244, 63, 94, 0.10);
+  border: 1px solid rgba(244, 63, 94, 0.28);
+  color: #f87191;
+  border-radius: 20px;
+  padding: 4px 12px 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  animation: slideUp 0.4s ease;
 }
 
 /* === Gesture Overlay === */
@@ -1086,6 +1104,12 @@ body.light-mode .gesture-item {
 body.light-mode .ascii-label {
   color: var(--accent);
   text-shadow: none;
+}
+
+body.light-mode .region-badge {
+  background: rgba(244, 63, 94, 0.06);
+  border-color: rgba(244, 63, 94, 0.2);
+  color: #e11d48;
 }
 
 body.light-mode .progress-container {
