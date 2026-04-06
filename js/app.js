@@ -150,7 +150,7 @@ const App = {
 
   // === ASCII Art ===
   _initASCII() {
-    // Wider/more horizontal brain; straight rectangular brainstem at centre-bottom
+    // Wider/more horizontal brain; 45° diagonal brainstem bottom-right
     const brainArt = [
       '      ____---~~~---____         ',
       '    _/    __----__    \\_        ',
@@ -160,8 +160,8 @@ const App = {
       '   | |  \\  \\__/~  \\| \\  |      ',
       '    \\  ~-_  __-~~  /  \\/       ',
       '     \\____~~~___---~___/        ',
-      '              |  |              ',
-      '              |__|              ',
+      '                        \\      ',
+      '                         \\_    ',
     ];
     const text = brainArt.join('\n');
 
